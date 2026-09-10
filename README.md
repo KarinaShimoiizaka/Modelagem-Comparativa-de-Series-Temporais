@@ -1,1 +1,1 @@
-# Modelagem-Comparativa-de-S-ries-Temporais
+# Modelagem-Comparativa-de-Series-Temporais
