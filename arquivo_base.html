@@ -149,6 +149,40 @@
     main{ padding:28px 20px 60px; }
     .grid2{ grid-template-columns:1fr; }
   }
+
+  /* ---------- impressão: mostra TODAS as etapas, uma por página ---------- */
+  @media print{
+    nav.pages, .pager{ display:none !important; }
+
+    .app{ display:block; }
+    main{ padding:0; max-width:none; }
+
+    /* remove o controle de visibilidade via JS e mostra todas as seções */
+    section.page{
+      display:block !important;
+      opacity:1 !important;
+      animation:none !important;
+    }
+
+    /* cada etapa começa em uma nova página impressa */
+    section.page{
+      break-before:page;
+      page-break-before:always;
+    }
+    /* a primeira não precisa forçar quebra antes dela */
+    section.page:first-of-type{
+      break-before:auto;
+      page-break-before:auto;
+    }
+
+    /* evita que título fique "órfão" separado do conteúdo, e que
+       cards/tabelas sejam cortados ao meio entre páginas */
+    h1, h2, h3{ break-after:avoid; page-break-after:avoid; }
+    .card, table, .placeholder-img, .grid2{ break-inside:avoid; page-break-inside:avoid; }
+
+    body{ background:#fff; }
+    .card{ border-color:#999; }
+  }
 </style>
 </head>
 <body>
