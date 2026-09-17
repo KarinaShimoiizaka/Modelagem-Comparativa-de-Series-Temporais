@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base 01 — Nome da Base | Séries Temporais</title>
+<style>
+  :root{
+    --ink:#1b1f23;
+    --paper:#fbfaf7;
+    --panel:#ffffff;
+    --line:#dcd7cc;
+    --muted:#6b6558;
+    --accent:#2f5d50;      /* verde-escuro, remete a "trend/growth" */
+    --accent-soft:#e4ede9;
+    --warn:#9a4b3a;        /* terracota escurecido, usado só em alertas/vazamento */
+    --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15.5px;
+    line-height:1.55;
+  }
+
+  /* ---------- layout geral: nav lateral + páginas ---------- */
+  .app{ display:flex; min-height:100vh; }
+
+  nav.pages{
+    width:250px;
+    flex-shrink:0;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:28px 0;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  nav.pages .brand{
+    font-family:var(--font-display);
+    font-size:1.05rem;
+    padding:0 24px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:8px;
+  }
+  nav.pages .brand small{
+    display:block; color:var(--muted); font-family:var(--font-body); font-size:.78rem; margin-top:4px;
+  }
+  nav.pages button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:9px 24px;
+    font:inherit;
+    font-size:.92rem;
+    color:var(--muted);
+    cursor:pointer;
+    border-left:3px solid transparent;
+  }
+  nav.pages button:hover{ color:var(--ink); background:var(--accent-soft); }
+  nav.pages button.active{
+    color:var(--accent);
+    border-left-color:var(--accent);
+    background:var(--accent-soft);
+    font-weight:600;
+  }
+
+  main{ flex:1; padding:48px 56px 80px; max-width:980px; }
+
+  section.page{ display:none; animation:fade .25s ease; }
+  section.page.active{ display:block; }
+  @keyframes fade{ from{opacity:0} to{opacity:1} }
+
+  h1{ font-family:var(--font-display); font-size:2rem; margin:0 0 6px; }
+  h2{ font-family:var(--font-display); font-size:1.3rem; margin:0 0 18px; color:var(--accent); }
+  h3{ font-size:1.02rem; margin:28px 0 8px; }
+  .eyebrow{ color:var(--muted); font-size:.85rem; margin-bottom:24px; }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:20px 22px;
+    margin-bottom:18px;
+  }
+
+  .fill{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    padding:14px 16px;
+    color:var(--muted);
+    font-size:.9rem;
+    margin:10px 0 20px;
+  }
+  .fill code{ font-family:var(--font-mono); font-size:.82rem; }
+
+  table{ width:100%; border-collapse:collapse; margin:12px 0 20px; font-size:.9rem; }
+  th,td{ border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); font-weight:600; }
+
+  .placeholder-img{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:.85rem;
+    margin:10px 0 20px;
+  }
+
+  .flag{
+    display:inline-block;
+    font-size:.72rem;
+    padding:2px 8px;
+    border-radius:3px;
+    font-weight:600;
+  }
+  .flag.leak{ background:#f4e3de; color:var(--warn); }
+  .flag.ok{ background:var(--accent-soft); color:var(--accent); }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+  .pager{
+    display:flex; justify-content:space-between; margin-top:40px;
+    border-top:1px solid var(--line); padding-top:16px;
+  }
+  .pager button{
+    background:var(--accent); color:#fff; border:none; padding:9px 16px;
+    border-radius:4px; cursor:pointer; font-size:.85rem;
+  }
+  .pager button:disabled{ opacity:.35; cursor:default; }
+
+  @media (max-width:800px){
+    .app{ flex-direction:column; }
+    nav.pages{ width:100%; height:auto; position:relative; }
+    main{ padding:28px 20px 60px; }
+    .grid2{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- impressão: mostra TODAS as etapas, uma por página ---------- */
+  @media print{
+    nav.pages, .pager{ display:none !important; }
+
+    .app{ display:block; }
+    main{ padding:0; max-width:none; }
+
+    /* remove o controle de visibilidade via JS e mostra todas as seções */
+    section.page{
+      display:block !important;
+      opacity:1 !important;
+      animation:none !important;
+    }
+
+    /* cada etapa começa em uma nova página impressa */
+    section.page{
+      break-before:page;
+      page-break-before:always;
+    }
+    /* a primeira não precisa forçar quebra antes dela */
+    section.page:first-of-type{
+      break-before:auto;
+      page-break-before:auto;
+    }
+
+    /* evita que título fique "órfão" separado do conteúdo, e que
+       cards/tabelas sejam cortados ao meio entre páginas */
+    h1, h2, h3{ break-after:avoid; page-break-after:avoid; }
+    .card, table, .placeholder-img, .grid2{ break-inside:avoid; page-break-inside:avoid; }
+
+    body{ background:#fff; }
+    .card{ border-color:#999; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================================================
+       NAVEGAÇÃO — cada botão = uma "página" do relatório
+       Troque N pelo número/nome da base neste arquivo inteiro
+       ====================================================== -->
+  <nav class="pages">
+    <div class="brand">
+      Base 01 <br>
+      <small>Nome da base — Grupo XX</small>
+    </div>
+    <button class="nav-btn active" data-page="p1">1. Visão geral da base</button>
+    <button class="nav-btn" data-page="p2">2. Variáveis externas</button>
+    <button class="nav-btn" data-page="p3">3. Limpeza e exploração</button>
+    <button class="nav-btn" data-page="p4">4. Decomposição STL</button>
+    <button class="nav-btn" data-page="p5">5. Feature engineering</button>
+    <button class="nav-btn" data-page="p6">6. Walk-forward</button>
+    <button class="nav-btn" data-page="p7">7. Modelos &amp; hiperparâmetros</button>
+    <button class="nav-btn" data-page="p8">8. Resultados (MAE)</button>
+    <button class="nav-btn" data-page="p9">9. Resíduos &amp; Ljung-Box</button>
+    <button class="nav-btn" data-page="p10">10. Importância das features</button>
+    <button class="nav-btn" data-page="p11">11. Conclusão da base</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ PÁGINA 1 — VISÃO GERAL DA BASE ============ -->
+    <section class="page active" id="p1">
+      <h1>Base 01 — Nome da base</h1>
+      <div class="eyebrow">Fonte, período e características gerais da série-alvo</div>
+
+      <div class="card">
+        <h2>Ficha da base</h2>
+        <table>
+          <tr><th>Fonte dos dados</th><td class="fill">link/instituição de onde veio a base</td></tr>
+          <tr><th>Variável-alvo</th><td class="fill">nome e o que ela representa</td></tr>
+          <tr><th>Unidade</th><td class="fill">ex: R$, unidades, °C, %</td></tr>
+          <tr><th>Frequência</th><td class="fill">diária / semanal / mensal / etc.</td></tr>
+          <tr><th>Período coberto</th><td class="fill">dd/mm/aaaa a dd/mm/aaaa</td></tr>
+          <tr><th>Nº de observações</th><td class="fill">total de pontos na série</td></tr>
+          <tr><th>Horizonte de previsão definido</th><td class="fill">ex: h = 12 períodos à frente</td></tr>
+          <tr><th>Justificativa da escolha da base</th><td class="fill">por que essa base é adequada (sazonalidade, tamanho, relevância)</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Gráfico da série-alvo</h2>
+        <div class="placeholder-img">gráfico da série-alvo ao longo do tempo</div>
+        <div class="fill">Descreva o que se observa: nível, tendência aparente, ciclos, quebras estruturais, mudanças de regime.</div>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 2 — VARIÁVEIS EXTERNAS ============ -->
+    <section class="page" id="p2">
+      <h1>Variáveis externas</h1>
+      <div class="eyebrow">Dicionário de variáveis e disponibilidade real na data de previsão</div>
+
+      <div class="card">
+        <h2>Dicionário de variáveis</h2>
+        <table>
+          <tr><th>Variável</th><th>Descrição</th><th>Unidade</th><th>Fonte</th></tr>
+          <tr><td class="fill">nome</td><td class="fill">o que representa</td><td class="fill">-</td><td class="fill">-</td></tr>
+          <tr><td class="fill">nome</td><td class="fill">o que representa</td><td class="fill">-</td><td class="fill">-</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Disponibilidade na data de origem da previsão</h2>
+        <table>
+          <tr><th>Variável</th><th>Disponível no futuro?</th><th>Tratamento adotado</th></tr>
+          <tr>
+            <td class="fill">nome</td>
+            <td><span class="flag ok">conhecida antecipadamente</span></td>
+            <td class="fill">usar valor real</td>
+          </tr>
+          <tr>
+            <td class="fill">nome</td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td class="fill">defasar (lag) / usar previsão disponível na origem / excluir — justifique</td>
+          </tr>
+        </table>
+        <div class="fill">Para cada variável marcada como indisponível, explique exatamente qual substituto foi usado e por quê (lag de quantos períodos, forecast externo, exclusão, etc.).</div>
+      </div>
+
+      <div class="card">
+        <h2>Gráficos das variáveis externas</h2>
+        <div class="grid2">
+          <div class="placeholder-img">variável externa 1</div>
+          <div class="placeholder-img">variável externa 2</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 3 — LIMPEZA E EXPLORAÇÃO ============ -->
+    <section class="page" id="p3">
+      <h1>Limpeza e exploração</h1>
+      <div class="eyebrow">Qualidade dos dados antes da modelagem</div>
+
+      <div class="card">
+        <h2>Diagnóstico</h2>
+        <table>
+          <tr><th>Valores ausentes</th><td class="fill">quantidade, onde ocorrem, como foram tratados</td></tr>
+          <tr><th>Duplicidades</th><td class="fill">existem? como foram resolvidas</td></tr>
+          <tr><th>Irregularidades temporais</th><td class="fill">datas faltantes, frequência inconsistente, como foi regularizada</td></tr>
+          <tr><th>Valores atípicos (outliers)</th><td class="fill">método de detecção e decisão (manter/remover/tratar)</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Decisões de limpeza e transformação</h2>
+        <div class="fill">Descreva em texto corrido as decisões tomadas (ex: interpolação, winsorização, log-transform) e a justificativa de cada uma.</div>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 4 — STL ============ -->
+    <section class="page" id="p4">
+      <h1>Decomposição STL</h1>
+      <div class="eyebrow">Tendência, sazonalidade e resíduo</div>
+
+      <div class="card">
+        <div class="placeholder-img">decomposição STL: observado / tendência / sazonal / resíduo</div>
+      </div>
+
+      <h3>Tendência</h3>
+      <div class="fill">Interpretação visual: períodos de crescimento, queda, estabilidade e mudanças de direção.</div>
+
+      <h3>Sazonalidade</h3>
+      <div class="fill">Padrão sazonal identificado (período, amplitude, regularidade ao longo do tempo).</div>
+
+      <h3>Resíduo</h3>
+      <div class="fill">O que sobra após remover tendência e sazonalidade; há padrões remanescentes?</div>
+
+      <h3>Força da sazonalidade / tendência</h3>
+      <table>
+        <tr><th>Métrica</th><th>Valor</th><th>Interpretação</th></tr>
+        <tr><td>Força da tendência</td><td class="fill">0.xx</td><td class="fill">-</td></tr>
+        <tr><td>Força da sazonalidade</td><td class="fill">0.xx</td><td class="fill">-</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ PÁGINA 5 — FEATURE ENGINEERING ============ -->
+    <section class="page" id="p5">
+      <h1>Feature engineering</h1>
+      <div class="eyebrow">Construção das features usadas nos modelos baseados em tabela</div>
+
+      <div class="card">
+        <h2>Features construídas</h2>
+        <table>
+          <tr><th>Tipo</th><th>Descrição</th><th>Usada em quais modelos</th></tr>
+          <tr><td>Lags da variável-alvo</td><td class="fill">ex: lag 1, 7, 30</td><td class="fill">RF, especialização</td></tr>
+          <tr><td>Lags de variáveis externas</td><td class="fill">-</td><td class="fill">-</td></tr>
+          <tr><td>Estatísticas de janela móvel</td><td class="fill">ex: média/desvio móvel 7 e 30</td><td class="fill">-</td></tr>
+          <tr><td>Features de calendário</td><td class="fill">dia da semana, mês, feriado</td><td class="fill">-</td></tr>
+          <tr><td>Encoding cíclico</td><td class="fill">seno/cosseno de dia/mês</td><td class="fill">-</td></tr>
+          <tr><td>Outras features criadas</td><td class="fill">-</td><td class="fill">-</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Tratamento de NA gerado pelos lags/janelas</h2>
+        <div class="fill">Como foram tratados os NAs criados no início da série (descarte, período de warm-up, etc.).</div>
+      </div>
+
+      <div class="fill">Lembrete: as mesmas features devem ser usadas no Random Forest e no modelo de especialização, quando compatível.</div>
+    </section>
+
+    <!-- ============ PÁGINA 6 — WALK-FORWARD ============ -->
+    <section class="page" id="p6">
+      <h1>Protocolo walk-forward</h1>
+      <div class="eyebrow">Como a validação fora da amostra foi montada para esta base</div>
+
+      <table>
+        <tr><th>Janela inicial de treino</th><td class="fill">tamanho / data de início e fim</td></tr>
+        <tr><th>Horizonte de previsão</th><td class="fill">h = ?</td></tr>
+        <tr><th>Passo de avanço</th><td class="fill">a cada quantos períodos avança</td></tr>
+        <tr><th>Nº de origens de previsão (folds)</th><td class="fill">-</td></tr>
+        <tr><th>Datas de origem</th><td class="fill">lista ou regra de geração</td></tr>
+        <tr><th>Conjunto de teste final</th><td class="fill">período reservado</td></tr>
+      </table>
+
+      <div class="fill">Confirme: todos os 4 modelos desta base usam exatamente as mesmas origens, horizonte e conjunto de teste.</div>
+    </section>
+
+    <!-- ============ PÁGINA 7 — MODELOS E HIPERPARÂMETROS ============ -->
+    <section class="page" id="p7">
+      <h1>Modelos e hiperparâmetros</h1>
+      <div class="eyebrow">Espaço de busca, procedimento e configuração final</div>
+
+      <div class="card">
+        <h2>SARIMAX</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td class="fill">p,d,q / P,D,Q / m testados</td></tr>
+          <tr><th>Critério</th><td class="fill">AIC/BIC</td></tr>
+          <tr><th>Variáveis externas incluídas</th><td class="fill">-</td></tr>
+          <tr><th>Configuração final</th><td class="fill">-</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Holt-Winters (referência univariada)</h2>
+        <table>
+          <tr><th>Tendência</th><td class="fill">aditiva/multiplicativa/amortecida</td></tr>
+          <tr><th>Sazonalidade</th><td class="fill">aditiva/multiplicativa</td></tr>
+          <tr><th>Período sazonal</th><td class="fill">-</td></tr>
+          <tr><th>Parâmetros de suavização</th><td class="fill">alpha, beta, gamma</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Random Forest</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td class="fill">n_estimators, max_depth, min_samples_split, min_samples_leaf, max_features</td></tr>
+          <tr><th>Método de otimização</th><td class="fill">grid/random/bayes search + validação</td></tr>
+          <tr><th>Configuração final</th><td class="fill">-</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Modelo de especialização — [nome]</h2>
+        <table>
+          <tr><th>Principais hiperparâmetros</th><td class="fill">-</td></tr>
+          <tr><th>Intervalos testados</th><td class="fill">-</td></tr>
+          <tr><th>Método de busca</th><td class="fill">-</td></tr>
+          <tr><th>Configuração final</th><td class="fill">-</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 8 — RESULTADOS MAE ============ -->
+    <section class="page" id="p8">
+      <h1>Resultados comparativos (MAE)</h1>
+      <div class="eyebrow">Erro fora da amostra do protocolo walk-forward, apenas para esta base</div>
+
+      <table>
+        <tr><th>Modelo</th><th>MAE</th><th>Ranking</th></tr>
+        <tr><td>SARIMAX</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><td>Holt-Winters</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><td>Random Forest</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><td>[Especialização]</td><td class="fill">-</td><td class="fill">-</td></tr>
+      </table>
+
+      <div class="placeholder-img">gráfico: previsões vs. real (todas os modelos) nesta base</div>
+
+      <div class="fill">Discuta por que o melhor modelo desta base venceu — relacione com características da série (força de sazonalidade, ruído, presença de externas relevantes, tamanho da amostra).</div>
+    </section>
+
+    <!-- ============ PÁGINA 9 — RESÍDUOS ============ -->
+    <section class="page" id="p9">
+      <h1>Análise dos resíduos</h1>
+      <div class="eyebrow">Erros fora da amostra, por modelo</div>
+
+      <div class="grid2">
+        <div class="placeholder-img">resíduos ao longo do tempo</div>
+        <div class="placeholder-img">ACF dos resíduos</div>
+      </div>
+
+      <table>
+        <tr><th>Modelo</th><th>Estatística Ljung-Box</th><th>p-valor</th><th>Interpretação</th></tr>
+        <tr><td>SARIMAX</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><td>Holt-Winters</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><td>Random Forest</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><td>[Especialização]</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+      </table>
+
+      <div class="fill">Discuta viés, padrões remanescentes, variabilidade e autocorrelação por modelo.</div>
+    </section>
+
+    <!-- ============ PÁGINA 10 — IMPORTÂNCIA DAS FEATURES ============ -->
+    <section class="page" id="p10">
+      <h1>Importância das features</h1>
+      <div class="eyebrow">Random Forest e modelo de especialização (SARIMAX via coeficientes)</div>
+
+      <div class="grid2">
+        <div class="placeholder-img">importância — Random Forest</div>
+        <div class="placeholder-img">importância — [Especialização]</div>
+      </div>
+
+      <div class="card">
+        <h2>SARIMAX — coeficientes das variáveis externas</h2>
+        <table>
+          <tr><th>Variável</th><th>Coeficiente</th><th>Sinal</th><th>Significância</th></tr>
+          <tr><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+        </table>
+      </div>
+
+      <div class="fill">Destaque o papel das variáveis externas e retome sua disponibilidade real na data de previsão.</div>
+    </section>
+
+    <!-- ============ PÁGINA 11 — CONCLUSÃO DA BASE ============ -->
+    <section class="page" id="p11">
+      <h1>Conclusão desta base</h1>
+      <div class="fill">
+        Resuma: melhor modelo, por quê, principais limitações encontradas especificamente nesta base,
+        e qualquer decisão metodológica que precisou de ajuste (ex: base menos sazonal, poucos dados, variável externa descartada).
+      </div>
+      <div class="fill">
+        Lembrete: resumo executivo, integrantes/divisão de tarefas, explicação aprofundada do modelo de especialização,
+        conclusões gerais, referências e apêndice de demandas são <strong>únicos para o grupo</strong> —
+        não precisam ser repetidos em cada uma das 5 páginas de base. Coloque-os num arquivo "índice.html"
+        que linka as 5 bases, ou apenas numa das páginas, como preferirem.
+      </div>
+    </section>
+
+    <div class="pager">
+      <button id="prevBtn">← Anterior</button>
+      <button id="nextBtn">Próxima →</button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const navBtns = Array.from(document.querySelectorAll('.nav-btn'));
+  let current = 0;
+
+  function showPage(idx){
+    pages.forEach((p,i)=> p.classList.toggle('active', i===idx));
+    navBtns.forEach((b,i)=> b.classList.toggle('active', i===idx));
+    current = idx;
+    document.getElementById('prevBtn').disabled = idx === 0;
+    document.getElementById('nextBtn').disabled = idx === pages.length-1;
+    window.scrollTo(0,0);
+  }
+
+  navBtns.forEach((btn, i) => btn.addEventListener('click', () => showPage(i)));
+  document.getElementById('prevBtn').addEventListener('click', () => showPage(Math.max(0, current-1)));
+  document.getElementById('nextBtn').addEventListener('click', () => showPage(Math.min(pages.length-1, current+1)));
+  showPage(0);
+</script>
+</body>
+</html>
