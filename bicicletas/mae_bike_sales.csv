@@ -1,0 +1,5 @@
+grupo,base,modelo,MAE,posicao
+1,Bike Sales in Europe,Holt-Winters,237760.15358736613,1
+1,Bike Sales in Europe,XGBoost,564865.5837059021,2
+1,Bike Sales in Europe,SARIMAX,568564.2643646867,3
+1,Bike Sales in Europe,Random Forest,609077.8642455331,4
