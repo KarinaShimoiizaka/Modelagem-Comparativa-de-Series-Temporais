@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base 01 — Bike Sales in Europe | Séries Temporais</title>
+<style>
+  :root{
+    --ink:#1b1f23;
+    --paper:#fbfaf7;
+    --panel:#ffffff;
+    --line:#dcd7cc;
+    --muted:#6b6558;
+    --accent:#2f5d50;      /* verde-escuro, remete a "trend/growth" */
+    --accent-soft:#e4ede9;
+    --warn:#9a4b3a;        /* terracota escurecido, usado só em alertas/vazamento */
+    --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15.5px;
+    line-height:1.55;
+  }
+
+  /* ---------- layout geral: nav lateral + páginas ---------- */
+  .app{ display:flex; min-height:100vh; }
+
+  nav.pages{
+    width:250px;
+    flex-shrink:0;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:28px 0;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  nav.pages .brand{
+    font-family:var(--font-display);
+    font-size:1.05rem;
+    padding:0 24px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:8px;
+  }
+  nav.pages .brand small{
+    display:block; color:var(--muted); font-family:var(--font-body); font-size:.78rem; margin-top:4px;
+  }
+  nav.pages button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:9px 24px;
+    font:inherit;
+    font-size:.92rem;
+    color:var(--muted);
+    cursor:pointer;
+    border-left:3px solid transparent;
+  }
+  nav.pages button:hover{ color:var(--ink); background:var(--accent-soft); }
+  nav.pages button.active{
+    color:var(--accent);
+    border-left-color:var(--accent);
+    background:var(--accent-soft);
+    font-weight:600;
+  }
+
+  main{ flex:1; padding:48px 56px 80px; max-width:980px; }
+
+  section.page{ display:none; animation:fade .25s ease; }
+  section.page.active{ display:block; }
+  @keyframes fade{ from{opacity:0} to{opacity:1} }
+
+  h1{ font-family:var(--font-display); font-size:2rem; margin:0 0 6px; }
+  h2{ font-family:var(--font-display); font-size:1.3rem; margin:0 0 18px; color:var(--accent); }
+  h3{ font-size:1.02rem; margin:28px 0 8px; }
+  .eyebrow{ color:var(--muted); font-size:.85rem; margin-bottom:24px; }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:20px 22px;
+    margin-bottom:18px;
+  }
+
+  .fill{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    padding:14px 16px;
+    color:var(--muted);
+    font-size:.9rem;
+    margin:10px 0 20px;
+  }
+  .fill code{ font-family:var(--font-mono); font-size:.82rem; }
+
+  table{ width:100%; border-collapse:collapse; margin:12px 0 20px; font-size:.9rem; }
+  th,td{ border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); font-weight:600; }
+
+  .placeholder-img{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:.85rem;
+    margin:10px 0 20px;
+  }
+
+  .flag{
+    display:inline-block;
+    font-size:.72rem;
+    padding:2px 8px;
+    border-radius:3px;
+    font-weight:600;
+  }
+  .flag.leak{ background:#f4e3de; color:var(--warn); }
+  .flag.ok{ background:var(--accent-soft); color:var(--accent); }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+  .pager{
+    display:flex; justify-content:space-between; margin-top:40px;
+    border-top:1px solid var(--line); padding-top:16px;
+  }
+  .pager button{
+    background:var(--accent); color:#fff; border:none; padding:9px 16px;
+    border-radius:4px; cursor:pointer; font-size:.85rem;
+  }
+  .pager button:disabled{ opacity:.35; cursor:default; }
+
+  @media (max-width:800px){
+    .app{ flex-direction:column; }
+    nav.pages{ width:100%; height:auto; position:relative; }
+    main{ padding:28px 20px 60px; }
+    .grid2{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- impressão: mostra TODAS as etapas, uma por página ---------- */
+  @media print{
+    nav.pages, .pager{ display:none !important; }
+
+    .app{ display:block; }
+    main{ padding:0; max-width:none; }
+
+    /* remove o controle de visibilidade via JS e mostra todas as seções */
+    section.page{
+      display:block !important;
+      opacity:1 !important;
+      animation:none !important;
+    }
+
+    /* cada etapa começa em uma nova página impressa */
+    section.page{
+      break-before:page;
+      page-break-before:always;
+    }
+    /* a primeira não precisa forçar quebra antes dela */
+    section.page:first-of-type{
+      break-before:auto;
+      page-break-before:auto;
+    }
+
+    /* evita que título fique "órfão" separado do conteúdo, e que
+       cards/tabelas sejam cortados ao meio entre páginas */
+    h1, h2, h3{ break-after:avoid; page-break-after:avoid; }
+    .card, table, .placeholder-img, .grid2{ break-inside:avoid; page-break-inside:avoid; }
+
+    body{ background:#fff; }
+    .card{ border-color:#999; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================================================
+       NAVEGAÇÃO — cada botão = uma "página" do relatório
+       Troque N pelo número/nome da base neste arquivo inteiro
+       ====================================================== -->
+  <nav class="pages">
+    <div class="brand">
+      Base 01 <br>
+      <small>Bike Sales in Europe — Grupo 1</small>
+    </div>
+    <button class="nav-btn active" data-page="p1">1. Visão geral da base</button>
+    <button class="nav-btn" data-page="p2">2. Variáveis externas</button>
+    <button class="nav-btn" data-page="p3">3. Limpeza e exploração</button>
+    <button class="nav-btn" data-page="p4">4. Decomposição STL</button>
+    <button class="nav-btn" data-page="p5">5. Feature engineering</button>
+    <button class="nav-btn" data-page="p6">6. Walk-forward</button>
+    <button class="nav-btn" data-page="p7">7. Modelos &amp; hiperparâmetros</button>
+    <button class="nav-btn" data-page="p8">8. Resultados (MAE)</button>
+    <button class="nav-btn" data-page="p9">9. Resíduos &amp; Ljung-Box</button>
+    <button class="nav-btn" data-page="p10">10. Importância das features</button>
+    <button class="nav-btn" data-page="p11">11. Conclusão da base</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ PÁGINA 1 — VISÃO GERAL DA BASE ============ -->
+    <section class="page active" id="p1">
+      <h1>Base 01 — Bike Sales in Europe</h1>
+      <div class="eyebrow">Fonte, período e características gerais da série-alvo</div>
+
+      <div class="card">
+        <h2>Ficha da base</h2>
+        <table>
+          <tr><th>Fonte dos dados</th><td>Kaggle — <em>Bike Sales in Europe</em> (autor: sadiqshah): <a href="https://www.kaggle.com/datasets/sadiqshah/bike-sales-in-europe">kaggle.com/datasets/sadiqshah/bike-sales-in-europe</a> (arquivo <code>Sales.csv</code>)</td></tr>
+          <tr><th>Variável-alvo</th><td><code>Revenue</code> — receita total das vendas (bicicletas, acessórios e vestuário), somada por mês. A base original é transacional: cada linha é uma venda, com quantidade, custo, preço, lucro e receita, em lojas de seis países.</td></tr>
+          <tr><th>Unidade</th><td>Unidade monetária da própria base (a moeda não é informada no Kaggle). Os modelos trabalham com a receita em milhões.</td></tr>
+          <tr><th>Frequência</th><td>Mensal (<code>MS</code>). Os dados originais são transacionais, sem frequência regular, e foram regularizados por soma mensal.</td></tr>
+          <tr><th>Período coberto</th><td>Base bruta: 01/01/2011 a 31/07/2016. Série mensal final: 01/2011 a 06/2016 (jul/2016 foi removido por estar incompleto).</td></tr>
+          <tr><th>Nº de observações</th><td>113.036 transações brutas (112.036 após remover 1.000 duplicatas exatas) e <strong>66 meses</strong> na série final (60 observados e 6 imputados).</td></tr>
+          <tr><th>Horizonte de previsão definido</th><td>h = 1 mês à frente; a origem da previsão é o último dia do mês anterior.</td></tr>
+          <tr><th>Justificativa da escolha da base</th><td>Série de receita com sazonalidade moderada (F<sub>s</sub> = 0,33) e várias dimensões (categoria, país, gênero, idade) que permitem construir variáveis externas. Isso permite comparar modelos com e sem exógenas. Em contrapartida, a série é curta (66 meses) e tem mudanças de nível, o que a torna um bom teste de robustez.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Gráfico da série-alvo</h2>
+        <img src="img/serie_alvo.png" alt="Revenue mensal em milhões, com meses imputados em vermelho" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+        <p>A série tem três regimes. De 2011 a meados de 2013 o nível é baixo e estável (cerca de 0,5 a 1,1 milhão por mês), com vendas só de Bikes. A partir de jul/2013, com a entrada de Accessories e Clothing, a receita salta para 1,2–3,0 milhões e os picos se repetem em dezembro. Em jan/2015 há uma queda abrupta para cerca de 0,65 milhão, nível semelhante ao do início da série, e uma nova subida a partir de jul/2015, chegando a 3,8 milhões em dez/2015 e a 3,6 milhões em jun/2016.</p>
+        <p>Os pontos em vermelho são os 6 meses imputados (jul–dez/2014). Eles não têm registros: jul/2014 só tem Accessories e Clothing, e de ago a dez/2014 não há nenhuma transação. A base também tem <strong>anos espelhados</strong>: 2012, 2015 e 2016 repetem 100% das combinações de 2011, 2013 e 2014. É um artefato de construção da base, e por isso não se usa lag de 24 meses. As mudanças de nível vêm do mix de produtos, não do calendário.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 2 — VARIÁVEIS EXTERNAS ============ -->
+    <section class="page" id="p2">
+      <h1>Variáveis externas</h1>
+      <div class="eyebrow">Dicionário de variáveis e disponibilidade real na data de previsão</div>
+
+      <div class="card">
+        <h2>Dicionário de variáveis</h2>
+        <table>
+          <tr><th>Variável</th><th>Descrição</th><th>Unidade</th><th>Fonte</th></tr>
+          <tr><td><code>mes_sin</code>, <code>mes_cos</code></td><td>Encoding cíclico do mês do calendário</td><td>—</td><td>Calendário</td></tr>
+          <tr><td><code>preco_medio</code></td><td>Média de <code>Unit_Price</code> nas transações do mês (indicador de mix, pois cada produto tem preço fixo)</td><td>moeda/unidade</td><td><code>Sales.csv</code> (derivada)</td></tr>
+          <tr><td><code>custo_medio</code></td><td>Média de <code>Unit_Cost</code> nas transações do mês (também reflete o mix)</td><td>moeda/unidade</td><td><code>Sales.csv</code> (derivada)</td></tr>
+          <tr><td><code>n_transacoes</code></td><td>Número de transações no mês</td><td>contagem</td><td><code>Sales.csv</code> (derivada)</td></tr>
+          <tr><td><code>idade_media</code></td><td>Idade média dos clientes no mês</td><td>anos</td><td><code>Sales.csv</code> (derivada)</td></tr>
+          <tr><td><code>pct_cat_*</code></td><td>Participação de Bikes, Accessories e Clothing na quantidade vendida</td><td>proporção</td><td><code>Sales.csv</code> (derivada)</td></tr>
+          <tr><td><code>pct_pais_*</code></td><td>Participação de cada país (Australia, Canada, France, Germany, United Kingdom, United States) na quantidade vendida</td><td>proporção</td><td><code>Sales.csv</code> (derivada)</td></tr>
+          <tr><td><code>pct_genero_*</code></td><td>Participação de cada gênero (F, M) dos clientes na quantidade vendida</td><td>proporção</td><td><code>Sales.csv</code> (derivada)</td></tr>
+        </table>
+        <p>A base não traz nenhuma variável de preço planejado com variação no tempo: os 130 produtos têm um único <code>Unit_Price</code> e um único <code>Unit_Cost</code> em todo o período. Uma previsão de preço ou promoção conhecida antecipadamente teria que vir de fonte externa.</p>
+      </div>
+
+      <div class="card">
+        <h2>Disponibilidade na data de origem da previsão</h2>
+        <table>
+          <tr><th>Variável</th><th>Disponível no futuro?</th><th>Tratamento adotado</th></tr>
+          <tr>
+            <td><code>mes_sin</code>, <code>mes_cos</code></td>
+            <td><span class="flag ok">conhecida antecipadamente</span></td>
+            <td>Usar o valor real do mês previsto (única variável contemporânea).</td>
+          </tr>
+          <tr>
+            <td><code>preco_medio</code>, <code>custo_medio</code>, <code>idade_media</code>, <code>n_transacoes</code></td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td>Defasadas em 1 mês (<code>_lag1</code>): só são conhecidas junto com o próprio alvo.</td>
+          </tr>
+          <tr>
+            <td><code>pct_cat_*</code>, <code>pct_pais_*</code>, <code>pct_genero_*</code></td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td>Defasadas em 1 mês (<code>_lag1</code>).</td>
+          </tr>
+          <tr>
+            <td><code>Order_Quantity</code>, <code>Cost</code>, <code>Profit</code> do mesmo mês</td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td>Excluídas: não entram como preditoras, pois só são conhecidas junto com a receita.</td>
+          </tr>
+        </table>
+        <p>Todas as variáveis realizadas entram com lag de 1 mês, então o valor do mês <em>t−1</em> está disponível no fim desse mês, na origem da previsão do mês <em>t</em> (h = 1). A versão anterior do trabalho usava <code>preco_medio</code> e <code>custo_medio</code> do mesmo mês como se fossem preço planejado, o que era vazamento. Como cada produto tem preço fixo, a média mensal só varia pelo mix vendido, que é um resultado realizado. Nos meses inválidos (jul–dez/2014), as externas realizadas são preenchidas com o último valor válido (<code>ffill</code>), sem olhar para o futuro. Como <code>pct_genero_F</code> = 1 − <code>pct_genero_M</code>, só uma delas entra no pool do SARIMAX, para evitar colinearidade perfeita.</p>
+      </div>
+
+      <div class="card">
+        <h2>Gráficos das variáveis externas</h2>
+        <div class="grid2">
+          <img src="img/ext_preco_medio.png" alt="Preço médio por transação ao longo do tempo" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+          <img src="img/ext_categorias.png" alt="Participação de Bikes e Accessories na quantidade vendida" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+        </div>
+        <p>O preço médio por transação cai de cerca de 2.000 para cerca de 300–400 quando Accessories e Clothing entram no mix (jul/2013 a dez/2014 e jul/2015 em diante). Isso mostra que a variável mede o mix, e não uma decisão de preço. A participação de Bikes cai de 100% para cerca de 2% nesses mesmos períodos, o que explica o espelhamento da base.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 3 — LIMPEZA E EXPLORAÇÃO ============ -->
+    <section class="page" id="p3">
+      <h1>Limpeza e exploração</h1>
+      <div class="eyebrow">Qualidade dos dados antes da modelagem</div>
+
+      <div class="card">
+        <h2>Diagnóstico</h2>
+        <table>
+          <tr><th>Valores ausentes</th><td>Nenhum valor ausente nas colunas da base bruta. Na série mensal há 6 meses inválidos: jul/2014 (incompleto, só Accessories e Clothing, sem nenhuma Bike) e ago–dez/2014 (sem nenhum registro). Ainda há jul/2016, também incompleto e no fim da série. Os meses de jul–dez/2014 foram imputados com o valor do mesmo mês do ano anterior (<code>y[t−12]</code>), e jul/2016 foi removido.</td></tr>
+          <tr><th>Duplicidades</th><td>1.000 linhas duplicadas exatas, removidas antes da agregação (113.036 → 112.036 linhas).</td></tr>
+          <tr><th>Irregularidades temporais</th><td>Os dados são transacionais, sem frequência regular, e a série tem lacuna em ago–dez/2014. A série foi regularizada em calendário mensal completo (<code>MS</code>), por soma mensal, incluindo os meses sem registro. Isso mantém <code>m = 12</code> representando 12 meses e evita que os lags cruzem o buraco. Além disso, os anos de 2012, 2015 e 2016 repetem 100% das combinações de 2011, 2013 e 2014 (anos espelhados).</td></tr>
+          <tr><th>Valores atípicos (outliers)</th><td>Por IQR no nível da transação, <code>Revenue</code> tem 14.765 atípicos (13,06%) e <code>Order_Quantity</code> tem 0. Na série mensal, nenhum mês é atípico por IQR. Os atípicos transacionais refletem a diferença de preço entre bicicletas e acessórios, e foram mantidos.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Decisões de limpeza e transformação</h2>
+        <p>As duplicatas exatas foram removidas, pois não representam vendas distintas. Os atípicos de <code>Revenue</code> foram mantidos: são a diferença natural entre uma bicicleta e um acessório, e não erros de registro.</p>
+        <p>Jul/2014 e jul/2016 só têm Accessories e Clothing, sem nenhuma Bike (categoria presente em todos os demais meses). São meses incompletos, no último mês de cada bloco de extração, e não podem ser tratados como reais. Jul/2016 está no fim da série e foi removido, então o teste não o inclui. Os meses inválidos do meio (jul–dez/2014) foram tratados como ausentes e imputados por <code>y[t−12]</code>, usando só informação anterior à lacuna. Os meses imputados nunca são origem de validação ou de teste.</p>
+        <p>Como o preço e o custo de cada produto são fixos (0 de 130 produtos com mais de um preço ou custo), a média mensal desses campos é só um indicador de mix e entra defasada. Transformações foram tratadas como hiperparâmetros: o log no SARIMAX (a configuração escolhida o usa) e o Box-Cox no Holt-Winters (a configuração escolhida não o usa). O alvo é modelado em milhões, por estabilidade numérica, e as exógenas do SARIMAX são padronizadas (<code>StandardScaler</code> ajustado só no treino de cada origem). Pelo mesmo motivo de espelhamento, não se usa lag de 24 meses.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 4 — STL ============ -->
+    <section class="page" id="p4">
+      <h1>Decomposição STL</h1>
+      <div class="eyebrow">Tendência, sazonalidade e resíduo</div>
+
+      <div class="card">
+        <img src="img/stl.png" alt="Decomposição STL com m=12: observado, tendência, sazonal e resíduo" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+        <p>A STL (robusta, <code>m = 12</code>) usa só o período anterior ao teste (treino + validação), para que a escolha de <code>m</code> não use informação do bloco de teste.</p>
+      </div>
+
+      <h3>Tendência</h3>
+      <p>O nível é estável em 2011–2012, sobe de forma acentuada em meados de 2013, quando entram Accessories e Clothing, e fica em patamar mais alto em 2014. A tendência cai na parte final por causa do retorno ao patamar baixo em jan/2015. A força de tendência alta reflete essas mudanças de nível mais do que um crescimento contínuo.</p>
+
+      <h3>Sazonalidade</h3>
+      <p>A sazonalidade é moderada, com picos recorrentes em dezembro. Parte do componente sazonal com m = 6 e m = 12 captura o salto de julho, que é uma mudança estrutural e não um padrão de calendário. Essa é uma limitação a declarar. Para escolher o período sazonal foram testados m = 3, 4, 6 e 12. Os dois maiores valores de F<sub>s</sub> definiram os candidatos do SARIMAX e do Holt-Winters: <strong>m ∈ {6, 12}</strong>.</p>
+
+      <h3>Resíduo</h3>
+      <p>O resíduo é concentrado nos meses de quebra (jul/2013, jan/2015) e na lacuna imputada. Fora desses períodos fica próximo de zero. Ainda há estrutura remanescente, porque a STL não captura mudanças bruscas de nível.</p>
+
+      <h3>Força da sazonalidade / tendência</h3>
+      <table>
+        <tr><th>Métrica</th><th>Valor</th><th>Interpretação</th></tr>
+        <tr><td>Força da tendência (m = 12)</td><td>0,509</td><td>Moderada a alta, puxada pelas mudanças de nível. Com m = 3, 4 e 6 chega a 0,78–0,81.</td></tr>
+        <tr><td>Força da sazonalidade (m = 12)</td><td>0,330</td><td>Moderada. Para m = 6 é 0,395 (a maior), para m = 4 é 0,040 e para m = 3 é 0,000.</td></tr>
+      </table>
+      <p>Estacionariedade (treino + validação, n = 42): a série em nível é não estacionária (ADF p = 1,000 e KPSS p = 0,021). Com a diferença simples Δ1 fica estacionária (ADF p &lt; 0,001 e KPSS p = 0,100). Com Δ12 isolada não (ADF p = 0,968), e com Δ1Δ12 (ADF p = 0,019 e KPSS p = 0,100) sim. O grid do SARIMAX testa <code>d, D ∈ {0, 1}</code>.</p>
+    </section>
+
+    <!-- ============ PÁGINA 5 — FEATURE ENGINEERING ============ -->
+    <section class="page" id="p5">
+      <h1>Feature engineering</h1>
+      <div class="eyebrow">Construção das features usadas nos modelos baseados em tabela</div>
+
+      <div class="card">
+        <h2>Features construídas</h2>
+        <table>
+          <tr><th>Tipo</th><th>Descrição</th><th>Usada em quais modelos</th></tr>
+          <tr><td>Lags da variável-alvo</td><td><code>lag_1</code>, <code>lag_2</code>, <code>lag_3</code>, <code>lag_6</code>, <code>lag_12</code> (5 features)</td><td>Random Forest, XGBoost. O SARIMAX não usa lags do alvo como exógenas, pois os termos AR/MA já os modelam.</td></tr>
+          <tr><td>Lags de variáveis externas</td><td>15 externas defasadas em 1 mês (<code>_lag1</code>): <code>preco_medio</code>, <code>custo_medio</code>, <code>idade_media</code>, <code>n_transacoes</code>, 3 de categoria (<code>pct_cat_*</code>), 6 de país (<code>pct_pais_*</code>) e 2 de gênero (<code>pct_genero_*</code>)</td><td>Random Forest e XGBoost (as 15). SARIMAX: combinações de 3 itens do pool (a escolhida usa <code>idade_media_lag1</code>, <code>pct_cat_Accessories_lag1</code> e <code>pct_pais_Germany_lag1</code>).</td></tr>
+          <tr><td>Estatísticas de janela móvel</td><td>Média e desvio-padrão móveis de 3, 6 e 12 meses, calculados sobre <code>y.shift(1)</code> (6 features: <code>roll_mean_*</code> e <code>roll_std_*</code>)</td><td>Random Forest, XGBoost</td></tr>
+          <tr><td>Features de calendário</td><td>Mês do ano (via encoding cíclico). Não há dia da semana nem feriado, porque a série é mensal.</td><td>Random Forest, XGBoost. SARIMAX: apenas como item do pool (conjuntos <code>calendario</code>).</td></tr>
+          <tr><td>Encoding cíclico</td><td><code>mes_sin</code> = sen(2π·mês/12) e <code>mes_cos</code> = cos(2π·mês/12) (2 features)</td><td>Random Forest, XGBoost, SARIMAX (conjuntos que incluem calendário)</td></tr>
+          <tr><td>Outras features criadas</td><td>Variável alvo transformada em log (somente SARIMAX). O modo do alvo das árvores (<code>nivel</code> ou <code>diferenca</code>) foi tratado como hiperparâmetro. Holt-Winters usa só o próprio alvo.</td><td>SARIMAX (log), Random Forest e XGBoost (modo)</td></tr>
+        </table>
+        <p>No total, Random Forest e XGBoost usam <strong>28 features</strong>: 11 do alvo (5 lags + 6 de janela), 2 de calendário e 15 externas.</p>
+      </div>
+
+      <div class="card">
+        <h2>Tratamento de NA gerado pelos lags/janelas</h2>
+        <p>Para as árvores, as primeiras linhas sem histórico suficiente (warm-up de 12 meses, por causa de <code>lag_12</code> e das janelas de 12 meses) não entram como linhas de treino: a primeira linha com todas as features é jan/2012. Para o SARIMAX só falta o <code>_lag1</code> da primeira linha, então ele é ajustado a partir de fev/2011. Todos os SARIMAX, com ou sem exógenas, partem desse mesmo ponto, para que as configurações sejam comparáveis.</p>
+      </div>
+
+      <p>As mesmas features (<code>FEATURE_COLS</code>) são usadas no Random Forest e no modelo de especialização (XGBoost). Todas as janelas usam <code>shift(1)</code>, e todas as externas realizadas entram defasadas em 1 mês, então nada do que entra na linha do mês <em>t</em> é desconhecido no fim de <em>t−1</em>.</p>
+    </section>
+
+    <!-- ============ PÁGINA 6 — WALK-FORWARD ============ -->
+    <section class="page" id="p6">
+      <h1>Protocolo walk-forward</h1>
+      <div class="eyebrow">Como a validação fora da amostra foi montada para esta base</div>
+
+      <table>
+        <tr><th>Janela inicial de treino</th><td>36 meses: 01/2011 a 12/2013. A janela é expansiva: na origem <em>t</em> o treino usa todos os meses anteriores a <em>t</em>.</td></tr>
+        <tr><th>Horizonte de previsão</th><td>h = 1 mês.</td></tr>
+        <tr><th>Passo de avanço</th><td>1 mês: depois de prever <em>t</em>, o mês entra no histórico e o modelo é reajustado.</td></tr>
+        <tr><th>Nº de origens de previsão (folds)</th><td>24: 12 de validação (escolha de hiperparâmetros) e 12 de teste (resultado final).</td></tr>
+        <tr><th>Datas de origem</th><td>Validação: 2014-01 a 2014-06 e 2015-01 a 2015-06. São os 12 últimos meses observados antes do teste; os meses imputados (jul–dez/2014) não servem de origem. Teste: 2015-07 a 2016-06.</td></tr>
+        <tr><th>Conjunto de teste final</th><td>Os últimos 12 meses da série, de 01/07/2015 a 01/06/2016. Os hiperparâmetros escolhidos na validação ficam fixos no teste, e nenhuma decisão usa esse bloco.</td></tr>
+      </table>
+
+      <p>Os 4 modelos desta base (SARIMAX, Holt-Winters, Random Forest e XGBoost) usam exatamente as mesmas origens, o mesmo horizonte e o mesmo bloco de teste, e foram otimizados pelo mesmo critério (MAE walk-forward nas mesmas origens de validação). Como referência há também dois modelos sem parâmetros, avaliados nas mesmas origens: o ingênuo (<code>y[t−1]</code>, MAE na validação 375.259) e o ingênuo sazonal (<code>y[t−12]</code>, o mesmo mês do ano anterior, MAE na validação 1.635.225).</p>
+    </section>
+
+    <!-- ============ PÁGINA 7 — MODELOS E HIPERPARÂMETROS ============ -->
+    <section class="page" id="p7">
+      <h1>Modelos e hiperparâmetros</h1>
+      <div class="eyebrow">Espaço de busca, procedimento e configuração final</div>
+
+      <div class="card">
+        <h2>SARIMAX</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td>Etapa 1 (triagem): <code>p, q ∈ {0,1,2}</code>, <code>d ∈ {0,1}</code>, <code>P, Q ∈ {0,1}</code>, <code>D ∈ {0,1}</code>, <code>m ∈ {6, 12}</code>, em nível e em log (576 ajustes, 3 sem convergência). Etapa 2a: as 2 melhores ordens por AIC de cada grupo (transformação, d, D, m), sem exógenas e com 3 conjuntos-base (128 configurações). Etapa 2b: as 5 melhores ordens × todas as 454 combinações de 3 exógenas do pool de 15 itens (2.270 configurações, 27.240 ajustes).</td></tr>
+          <tr><th>Critério</th><td>AIC/BIC apenas como triagem, dentro de cada grupo com a mesma diferenciação e transformação. A decisão final é o menor MAE walk-forward na validação, entre as configurações com exógenas.</td></tr>
+          <tr><th>Variáveis externas incluídas</th><td><code>idade_media_lag1</code>, <code>pct_cat_Accessories_lag1</code> e <code>pct_pais_Germany_lag1</code> (padronizadas). <code>pct_pais_Germany_lag1</code> aparece nas 20 melhores combinações.</td></tr>
+          <tr><th>Configuração final</th><td>SARIMAX(0,1,2)(1,1,0)<sub>6</sub>, alvo em log (previsões revertidas com <code>exp</code>). MAE de validação = 175.159, contra 251.536 do mesmo modelo sem exógenas (referência SARIMA).</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Holt-Winters (referência univariada)</h2>
+        <table>
+          <tr><th>Tendência</th><td>Multiplicativa, não amortecida</td></tr>
+          <tr><th>Sazonalidade</th><td>Multiplicativa</td></tr>
+          <tr><th>Período sazonal</th><td>12 meses</td></tr>
+          <tr><th>Parâmetros de suavização</th><td>α, β e γ estimados por máxima verossimilhança em cada origem do walk-forward (os valores não são fixados nem registrados no notebook). Grade completa de 50 configurações (tendência nenhuma/aditiva/multiplicativa, amortecida ou não, sazonalidade nenhuma/aditiva/multiplicativa, m ∈ {6, 12}, com e sem Box-Cox). 7 delas falharam e foram descartadas. MAE de validação = 246.085.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Random Forest</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td><code>n_estimators</code> ∈ {100, 200, 300, 500}; <code>max_depth</code> ∈ {None, 3, 5, 8}; <code>min_samples_split</code> ∈ {2, 4, 8}; <code>min_samples_leaf</code> ∈ {1, 2, 4}; <code>max_features</code> ∈ {sqrt, 0,5, 1,0}; modo do alvo ∈ {nível, diferença}.</td></tr>
+          <tr><th>Método de otimização</th><td>Busca aleatória (<code>ParameterSampler</code>, 20 sorteios × 2 modos = 40 configurações) com o mesmo walk-forward de validação (12 origens) dos outros modelos.</td></tr>
+          <tr><th>Configuração final</th><td><code>n_estimators</code> = 300, <code>max_depth</code> = None, <code>min_samples_split</code> = 4, <code>min_samples_leaf</code> = 4, <code>max_features</code> = sqrt, modo = nível. MAE de validação = 286.150.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Modelo de especialização — XGBoost</h2>
+        <table>
+          <tr><th>Principais hiperparâmetros</th><td><code>n_estimators</code>, <code>max_depth</code>, <code>learning_rate</code>, <code>subsample</code>, <code>colsample_bytree</code>, <code>min_child_weight</code>, <code>reg_alpha</code>, <code>reg_lambda</code>, além do modo do alvo (nível ou diferença).</td></tr>
+          <tr><th>Intervalos testados</th><td><code>n_estimators</code> ∈ {100, 200, 400, 600}; <code>max_depth</code> ∈ {2, 3, 4, 6}; <code>learning_rate</code> ∈ {0,01, 0,03, 0,05, 0,1, 0,2}; <code>subsample</code> ∈ {0,6, 0,8, 1,0}; <code>colsample_bytree</code> ∈ {0,6, 0,8, 1,0}; <code>min_child_weight</code> ∈ {1, 3, 5}; <code>reg_alpha</code> ∈ {0, 0,1, 1}; <code>reg_lambda</code> ∈ {1, 5, 10}.</td></tr>
+          <tr><th>Método de busca</th><td>Busca aleatória (40 sorteios × 2 modos = 80 configurações), pelo MAE do mesmo walk-forward de validação.</td></tr>
+          <tr><th>Configuração final</th><td><code>n_estimators</code> = 600, <code>max_depth</code> = 6, <code>learning_rate</code> = 0,1, <code>subsample</code> = 1,0, <code>colsample_bytree</code> = 0,6, <code>min_child_weight</code> = 3, <code>reg_alpha</code> = 0, <code>reg_lambda</code> = 1, modo = nível. MAE de validação = 269.004.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Resumo dos MAE de validação</h2>
+        <table>
+          <tr><th>Modelo</th><th>MAE na validação</th></tr>
+          <tr><td>SARIMAX</td><td>175.159</td></tr>
+          <tr><td>Holt-Winters</td><td>246.085</td></tr>
+          <tr><td>XGBoost</td><td>269.004</td></tr>
+          <tr><td>Random Forest</td><td>286.150</td></tr>
+          <tr><td>Ingênuo (referência, <code>y[t−1]</code>)</td><td>375.259</td></tr>
+          <tr><td>Ingênuo sazonal (referência, <code>y[t−12]</code>)</td><td>1.635.225</td></tr>
+        </table>
+        <p>Na validação o SARIMAX foi o melhor, mas esse resultado não se repetiu no teste (ver resultados). Os hiperparâmetros foram escolhidos só por esse critério.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 8 — RESULTADOS MAE ============ -->
+    <section class="page" id="p8">
+      <h1>Resultados comparativos (MAE)</h1>
+      <div class="eyebrow">Erro fora da amostra do protocolo walk-forward, apenas para esta base</div>
+
+      <table>
+        <tr><th>Modelo</th><th>MAE</th><th>× ingênuo</th><th>× ingênuo sazonal</th><th>Ranking</th></tr>
+        <tr><td>SARIMAX</td><td>568.564</td><td>1,22</td><td>0,43</td><td>3º</td></tr>
+        <tr><td>Holt-Winters</td><td>237.760</td><td>0,51</td><td>0,18</td><td>1º</td></tr>
+        <tr><td>Random Forest</td><td>609.078</td><td>1,31</td><td>0,46</td><td>4º</td></tr>
+        <tr><td>XGBoost (especialização)</td><td>564.866</td><td>1,21</td><td>0,42</td><td>2º</td></tr>
+        <tr><td>Ingênuo (referência, <code>y[t−1]</code>)</td><td>465.221</td><td>1,00</td><td>0,35</td><td>—</td></tr>
+        <tr><td>Ingênuo sazonal (referência, <code>y[t−12]</code>)</td><td>1.334.140</td><td>2,87</td><td>1,00</td><td>—</td></tr>
+      </table>
+
+      <img src="img/previsoes_vs_real.png" alt="Previsões walk-forward (h=1) vs. real, Revenue mensal em milhões" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+      <img src="img/mae_modelos.png" alt="MAE por modelo comparado à referência ingênua" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+
+      <p>Em vitórias por origem de previsão (menor erro absoluto no mês, entre os 4 modelos), o Holt-Winters venceu 8 dos 12 meses do teste, o SARIMAX 2, o XGBoost 2 e o Random Forest 0. Tempo médio por origem: Holt-Winters 0,09 s, SARIMAX 0,30 s, Random Forest 0,37 s e XGBoost 0,92 s (as duas referências ingênuas são instantâneas).</p>
+
+      <p><strong>As duas referências.</strong> O ingênuo sazonal (<code>y[t−12]</code>) é o pior de todos (MAE 1.334.140, 2,9 vezes o ingênuo simples). Repetir o mesmo mês do ano anterior erra muito porque o nível da série muda com o mix de produtos, e não com o calendário: em jan–jun/2016 o mês de referência (jan–jun/2015) está no patamar baixo, enquanto o real fica entre 2,4 e 3,6 milhões, com erros de 1,8 a 2,8 milhões. Nas origens de jul–dez/2015 o mês de referência é um valor imputado (jul–dez/2014). Todos os quatro modelos ficam abaixo dele (razões de 0,18 a 0,46), mas só o Holt-Winters também ficou abaixo do ingênuo simples.</p>
+
+      <p><strong>Por que o Holt-Winters venceu.</strong> Ele foi o único modelo que ficou abaixo da referência ingênua (razão 0,51, contra 1,21 a 1,31 dos outros). A série é curta (66 meses), com sazonalidade moderada (F<sub>s</sub> = 0,33) e mudanças de nível que vêm do mix de produtos, não de variáveis que os modelos consigam antecipar. O Holt-Winters multiplicativo, com sazonalidade de 12 meses e tendência multiplicativa, se reajusta a cada origem e acompanha o nível recente. Random Forest e XGBoost tiveram quase todos os resíduos positivos (100% e 92%), ou seja, subestimaram a receita no teste. Isso é coerente com o limite das árvores de não extrapolar além da faixa vista no treino, numa série com saltos de nível, mas essa explicação é uma hipótese consistente com os resíduos, e não foi testada à parte. O SARIMAX, que lidera na validação (175.159), piorou muito no teste (568.564). Os maiores erros do SARIMAX e do Holt-Winters estão em jul/2015, quando a série sobe de nível, e os do Random Forest e do XGBoost em dez/2015. As variáveis externas, aliás, não ajudaram o SARIMAX fora da amostra: seus coeficientes não são significativos (ver página 10), e escolher a melhor entre 2.270 configurações com só 12 pontos de validação favorece o sobreajuste à validação.</p>
+    </section>
+
+    <!-- ============ PÁGINA 9 — RESÍDUOS ============ -->
+    <section class="page" id="p9">
+      <h1>Análise dos resíduos</h1>
+      <div class="eyebrow">Erros fora da amostra, por modelo</div>
+
+      <div class="grid2">
+        <img src="img/residuos_tempo.png" alt="Resíduos fora da amostra ao longo do tempo, por modelo" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+        <img src="img/residuos_acf.png" alt="ACF dos resíduos fora da amostra, por modelo" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+      </div>
+
+      <table>
+        <tr><th>Modelo</th><th>Estatística Ljung-Box</th><th>p-valor</th><th>Interpretação</th></tr>
+        <tr><td>SARIMAX</td><td>lag 3: 4,68<br>lag 6: 9,26</td><td>lag 3: 0,197<br>lag 6: 0,159</td><td>Sem indício de autocorrelação. Viés médio +43.297 (50% dos resíduos positivos) e desvio-padrão de 748.239, o maior dos quatro.</td></tr>
+        <tr><td>Holt-Winters</td><td>lag 3: 0,76<br>lag 6: 5,60</td><td>lag 3: 0,858<br>lag 6: 0,469</td><td>Sem indício de autocorrelação. Viés médio +193.462 (58% positivos) e desvio-padrão de 407.833.</td></tr>
+        <tr><td>Random Forest</td><td>lag 3: 5,24<br>lag 6: 12,64</td><td>lag 3: 0,155<br>lag 6: 0,049</td><td><strong>Há indício de autocorrelação</strong> (p &lt; 0,05 no lag 6). Viés médio +609.078 (100% positivos) e desvio-padrão de 362.356.</td></tr>
+        <tr><td>XGBoost</td><td>lag 3: 3,70<br>lag 6: 8,17</td><td>lag 3: 0,295<br>lag 6: 0,226</td><td>Sem indício de autocorrelação. Viés médio +547.124 (92% positivos) e desvio-padrão de 538.038.</td></tr>
+      </table>
+
+      <p><strong>Viés.</strong> Resíduo = real − previsto, então viés positivo é subestimação. Random Forest e XGBoost subestimam sistematicamente (viés médio de 609 mil e 547 mil, com 100% e 92% de resíduos positivos). O Holt-Winters tem viés pequeno e é puxado por dois meses (jul/2015 e jan/2016). O SARIMAX tem viés próximo de zero, mas erros grandes de sinais alternados (jul/2015 e jan/2016 positivos, fev e mar/2016 negativos), por isso o maior desvio-padrão.</p>
+      <p><strong>Padrões remanescentes e autocorrelação.</strong> Em SARIMAX, Holt-Winters e XGBoost o Ljung-Box (lags 3 e 6) não rejeita ausência de autocorrelação. No Random Forest o lag 6 rejeita (p = 0,049), e seus resíduos são sempre positivos, com o pico em dez/2015 (cerca de 1,5 milhão). Com apenas 12 pontos por modelo o teste tem baixo poder: p-valor alto indica ausência de evidência, não prova de independência.</p>
+      <p><strong>Diagnóstico dentro da amostra do SARIMAX final</strong> (ajustado em treino + validação): Ljung-Box com p = 0,998 (lag 6) e p = 0,988 (lag 12), sem autocorrelação residual nos dados de ajuste. O bom ajuste dentro da amostra contrasta com o erro fora dela, o que reforça o sobreajuste à validação.</p>
+      <img src="img/residuos_sarimax_in_sample.png" alt="Resíduos e ACF dentro da amostra do SARIMAX final" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+    </section>
+
+    <!-- ============ PÁGINA 10 — IMPORTÂNCIA DAS FEATURES ============ -->
+    <section class="page" id="p10">
+      <h1>Importância das features</h1>
+      <div class="eyebrow">Random Forest e modelo de especialização (SARIMAX via coeficientes)</div>
+
+      <div class="grid2">
+        <img src="img/imp_rf.png" alt="Importância das features — Random Forest (nativa e por permutação)" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+        <img src="img/imp_xgb.png" alt="Importância das features — XGBoost (gain e por permutação)" style="width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:4px;margin:10px 0 20px;background:#fff">
+      </div>
+      <p>As barras laranja são externas defasadas, as roxas são lags e janelas do alvo e as cinza são calendário. A permutação é avaliada no bloco de teste, no mesmo espaço do alvo do modelo.</p>
+
+      <div class="card">
+        <h2>SARIMAX — coeficientes das variáveis externas</h2>
+        <table>
+          <tr><th>Variável</th><th>Coeficiente</th><th>Sinal</th><th>Significância</th></tr>
+          <tr><td><code>idade_media_lag1</code></td><td>0,0071 (EP 0,0744)</td><td>positivo</td><td>p = 0,924 — não significativo</td></tr>
+          <tr><td><code>pct_cat_Accessories_lag1</code></td><td>0,2627 (EP 0,2802)</td><td>positivo</td><td>p = 0,349 — não significativo</td></tr>
+          <tr><td><code>pct_pais_Germany_lag1</code></td><td>0,0890 (EP 0,0916)</td><td>positivo</td><td>p = 0,332 — não significativo</td></tr>
+        </table>
+        <p>Exógenas padronizadas e alvo em log(milhões): o coeficiente é o efeito de +1 desvio-padrão da exógena sobre o log da receita. Na parte ARIMA, só o termo AR sazonal (<code>ar.S.L6</code> = −0,576; p &lt; 0,001) é significativo. <code>ma.L1</code> (−0,452; p = 0,295) e <code>ma.L2</code> (0,211; p = 0,411) não são.</p>
+      </div>
+
+      <p><strong>Random Forest e XGBoost.</strong> Na importância nativa do Random Forest, <code>lag_1</code> lidera, seguido de <code>preco_medio_lag1</code>, <code>pct_cat_Bikes_lag1</code> e <code>custo_medio_lag1</code>. No XGBoost (gain), <code>preco_medio_lag1</code> (cerca de 0,37), <code>n_transacoes_lag1</code> (cerca de 0,25) e <code>lag_1</code> (cerca de 0,16) concentram a maior parte. As externas defasadas somam <strong>69,9%</strong> da importância nativa do Random Forest e <strong>74,4%</strong> do gain do XGBoost. Na permutação, o ranking muda: no Random Forest lideram <code>lag_6</code>, <code>custo_medio_lag1</code> e <code>pct_cat_Accessories_lag1</code>, e no XGBoost <code>pct_pais_Australia_lag1</code> lidera com folga, seguida de <code>lag_1</code>, <code>mes_sin</code> e <code>lag_12</code>. A permutação não confirma a importância nativa, que favorece variáveis contínuas com muitos valores distintos (como preço médio e custo médio). Os aumentos de MAE por permutação são pequenos frente ao MAE do modelo (da ordem de milhares contra centenas de milhares), ou seja, nenhuma feature isolada explica o desempenho.</p>
+      <p><strong>Papel das externas e disponibilidade.</strong> As externas têm papel relevante nas árvores, mas não melhoram o resultado final (esses modelos ficaram atrás do Holt-Winters, que não usa nenhuma). No SARIMAX, nenhuma externa é significativa. Todas as externas usadas estão defasadas em 1 mês e portanto são conhecidas na origem da previsão; o calendário é conhecido antecipadamente.</p>
+    </section>
+
+    <!-- ============ PÁGINA 11 — CONCLUSÃO DA BASE ============ -->
+    <section class="page" id="p11">
+      <h1>Conclusão desta base</h1>
+      <p>O melhor modelo na base <em>Bike Sales in Europe</em> foi o <strong>Holt-Winters</strong> (MAE 237.760, 0,51 × o modelo ingênuo, 8 vitórias em 12 origens), seguido por XGBoost (564.866), SARIMAX (568.564) e Random Forest (609.078). Foi o único modelo que superou a referência ingênua (465.221); todos superaram a ingênua sazonal (1.334.140), que erra por não acompanhar as mudanças de nível. O modelo univariado venceu os que usam variáveis externas, porque a série é curta (66 meses) e o desempenho depende sobretudo de acompanhar as mudanças de nível e a sazonalidade moderada (F<sub>s</sub> = 0,33), e não de variáveis explicativas.</p>
+      <p><strong>Limitações específicas desta base.</strong> (i) Série curta, com 6 dos 66 meses imputados. (ii) Mudanças estruturais de nível (jul/2013, jan/2015, jul/2015) causadas pela entrada e saída de categorias no mix, e não por padrão de calendário. (iii) Anos espelhados (2012, 2015 e 2016 repetem 2011, 2013 e 2014), o que impede o uso de lag de 24 meses. (iv) Teste de apenas 12 pontos, logo o Ljung-Box tem baixo poder e a comparação entre modelos é sensível a poucos meses (jul/2015 e dez/2015). (v) Random Forest e XGBoost subestimam sistematicamente a receita no teste, o que é coerente com a dificuldade das árvores em extrapolar níveis. (vi) O SARIMAX vencedor na validação (175.159) piorou no teste (568.564), e suas exógenas não são significativas, indicando sobreajuste à validação (2.270 configurações para 12 origens). (vii) O resíduo do Random Forest mostra indício de autocorrelação (lag 6, p = 0,049).</p>
+      <p><strong>Decisões metodológicas que precisaram de ajuste.</strong> Jul/2016 removido (mês incompleto) e jul/2014 tratado como ausente; meses sem registro (ago–dez/2014) imputados com <code>y[t−12]</code>, sem uso de dados do teste; todas as variáveis realizadas defasadas em 1 mês para evitar vazamento (inclusive <code>preco_medio</code> e <code>custo_medio</code>, que refletem só o mix); <code>pct_genero_F</code> descartada do pool por colinearidade com <code>pct_genero_M</code>; <code>m</code> escolhido pela força da sazonalidade (m ∈ {6, 12}); busca do SARIMAX em duas etapas (AIC/BIC como triagem e MAE walk-forward como decisão); e os quatro modelos otimizados pelo mesmo walk-forward nas mesmas origens de validação.</p>
+    </section>
+
+    <div class="pager">
+      <button id="prevBtn">← Anterior</button>
+      <button id="nextBtn">Próxima →</button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const navBtns = Array.from(document.querySelectorAll('.nav-btn'));
+  let current = 0;
+
+  function showPage(idx){
+    pages.forEach((p,i)=> p.classList.toggle('active', i===idx));
+    navBtns.forEach((b,i)=> b.classList.toggle('active', i===idx));
+    current = idx;
+    document.getElementById('prevBtn').disabled = idx === 0;
+    document.getElementById('nextBtn').disabled = idx === pages.length-1;
+    window.scrollTo(0,0);
+  }
+
+  navBtns.forEach((btn, i) => btn.addEventListener('click', () => showPage(i)));
+  document.getElementById('prevBtn').addEventListener('click', () => showPage(Math.max(0, current-1)));
+  document.getElementById('nextBtn').addEventListener('click', () => showPage(Math.min(pages.length-1, current+1)));
+  showPage(0);
+</script>
+</body>
+</html>
