@@ -230,7 +230,7 @@
           <tr><th>Frequência</th><td>Diária</td></tr>
           <tr><th>Período coberto</th><td>01/01/2013 a 24/04/2017 (dividido pelo autor original em arquivo de treino, 01/01/2013 a 01/01/2017, e arquivo de teste, 01/01/2017 a 24/04/2017)</td></tr>
           <tr><th>Nº de observações</th><td>1.462 observações no arquivo de treino + 114 no arquivo de teste ≈ 1.576 registros diários no total</td></tr>
-          <tr><th>Horizonte de previsão definido</th><td class="fill">ex: h = 12 períodos à frente</td></tr>
+          <tr><th>Horizonte de previsão definido</th><td>h = 1 dia: a previsão do dia <em>t</em> é feita no fim do dia <em>t−1</em>, com informação disponível até ali.</td></tr>
           <tr><th>Justificativa da escolha da base</th><td>Série diária de médio/longo prazo (~4 anos), com sazonalidade anual bem definida na temperatura, umidade, velocidade do vento e pressão atmosférica — variáveis climáticas com forte inter-relação, adequadas para testar modelos univariados (SARIMAX, Holt-Winters) e multivariados (Random Forest com variáveis externas). Dataset público (CC0), amplamente usado como benchmark acadêmico para previsão de séries temporais climáticas.</td></tr>
         </table>
       </div>
@@ -268,12 +268,12 @@
           <tr>
             <td><code>humidity</code></td>
             <td><span class="flag leak">indisponível — vazamento</span></td>
-            <td class="fill">proposta: usar apenas valores defasados (lag ≥ h) — confirmar quando o horizonte h for definido</td>
+            <td>Usar só valores defasados. Foram testados lag 1, lags 1–2 e lags 1–7; o escolhido foi <strong>lags 1–2</strong> (ontem e anteontem).</td>
           </tr>
           <tr>
             <td><code>wind_speed</code></td>
             <td><span class="flag leak">indisponível — vazamento</span></td>
-            <td class="fill">proposta: usar apenas valores defasados (lag ≥ h) — confirmar quando o horizonte h for definido</td>
+            <td>Mesmo tratamento da umidade: <strong>lags 1–2</strong>.</td>
           </tr>
           <tr>
             <td>Calendário (dia do ano, mês)</td>
@@ -281,8 +281,7 @@
             <td>Usar o valor real, por exemplo como termos de Fourier (seno/cosseno do dia do ano) para representar o ciclo anual</td>
           </tr>
         </table>
-        <p>Umidade e vento são medidos no mesmo dia que a temperatura. No momento da previsão, os valores futuros ainda não existem, então usar o valor real do dia previsto seria vazamento de informação.</p>
-        <div class="fill">Definir o lag exato de cada variável depois de fixar o horizonte de previsão, ou justificar o uso de uma previsão externa.</div>
+        <p>Umidade e vento são medidos no mesmo dia que a temperatura. No momento da previsão (fim do dia <em>t−1</em>), o valor do dia <em>t</em> ainda não existe, então usar o valor real do dia previsto seria vazamento de informação. Com h = 1, o lag 1 (ontem) é o mais recente disponível. A comparação entre os conjuntos de lags está na página 5.</p>
       </div>
 
       <div class="card">
@@ -383,23 +382,43 @@
 
       <div class="card">
         <h2>Features construídas</h2>
+        <p>Com h = 1, toda feature da linha do dia <em>t</em> usa só informação até <em>t−1</em>. A única exceção é o calendário, que é conhecido antecipadamente. As janelas móveis são calculadas sobre a série deslocada em 1 dia (<code>shift(1)</code> antes do <code>rolling</code>), para terminarem em <em>t−1</em>.</p>
         <table>
           <tr><th>Tipo</th><th>Descrição</th><th>Usada em quais modelos</th></tr>
-          <tr><td>Lags da variável-alvo</td><td class="fill">ex: lag 1, 7, 30</td><td class="fill">RF, especialização</td></tr>
-          <tr><td>Lags de variáveis externas</td><td class="fill">-</td><td class="fill">-</td></tr>
-          <tr><td>Estatísticas de janela móvel</td><td class="fill">ex: média/desvio móvel 7 e 30</td><td class="fill">-</td></tr>
-          <tr><td>Features de calendário</td><td class="fill">dia da semana, mês, feriado</td><td class="fill">-</td></tr>
-          <tr><td>Encoding cíclico</td><td class="fill">seno/cosseno de dia/mês</td><td class="fill">-</td></tr>
-          <tr><td>Outras features criadas</td><td class="fill">-</td><td class="fill">-</td></tr>
+          <tr><td>Lags da variável-alvo</td><td>Temperatura de 1 a 7 dias atrás (todos os lags da última semana), 14 e 30 dias atrás</td><td>RF, XGBoost</td></tr>
+          <tr><td>Lags de variáveis externas</td><td><code>humidity</code> e <code>wind_speed</code> de ontem e anteontem (lags 1–2). Lag 1 e lags 1–7 também foram testados.</td><td>RF, XGBoost, SARIMAX (exógenas)</td></tr>
+          <tr><td>Estatísticas de janela móvel</td><td>Média, desvio-padrão, mínimo e máximo da temperatura nos últimos 7 e 30 dias</td><td>RF, XGBoost</td></tr>
+          <tr><td>Features de calendário</td><td>Só o dia do ano, em encoding cíclico. Dia da semana e feriados não entram: não há motivo físico para a temperatura seguir o calendário civil.</td><td>RF, XGBoost</td></tr>
+          <tr><td>Encoding cíclico</td><td>Seno e cosseno do dia do ano (período de 365,25 dias), representando o ciclo anual</td><td>RF, XGBoost</td></tr>
+          <tr><td>Outras features criadas</td><td>Variação de ontem em relação a anteontem (<code>lag1 − lag2</code>)</td><td>RF, XGBoost</td></tr>
         </table>
+        <p>Uma checagem automática no notebook altera todos os valores de um dia <em>t</em> e confirma que nenhuma feature da linha <em>t</em> muda, só as das linhas seguintes. Isso garante que não há vazamento do próprio dia.</p>
+      </div>
+
+      <div class="card">
+        <h2>Escolha dos lags das variáveis externas</h2>
+        <p>Comparação feita sem tocar no bloco de teste: Random Forest com hiperparâmetros fixos (300 árvores, <code>min_samples_leaf = 2</code>), walk-forward diário em 2016 com h = 1 e reajuste a cada 7 dias. Foram testados dois modos de alvo: <strong>nível</strong>, em que a árvore prevê <em>y<sub>t</sub></em>, e <strong>diferença</strong>, em que prevê <em>y<sub>t</sub> − y<sub>t−1</sub></em> e soma a temperatura de ontem.</p>
+        <table>
+          <tr><th>Configuração</th><th>MAE 2016 (°C)</th><th>MAE jan–abr/2016 (°C)</th></tr>
+          <tr><td>RF diferença — ontem + anteontem (lags 1–2)</td><td><strong>1,219</strong></td><td><strong>1,094</strong></td></tr>
+          <tr><td>RF diferença — semana (lags 1–7)</td><td>1,221</td><td>1,110</td></tr>
+          <tr><td>RF diferença — ontem (lag 1)</td><td>1,226</td><td>1,129</td></tr>
+          <tr><td>Persistência (<em>y<sub>t−1</sub></em>)</td><td>1,226</td><td>1,123</td></tr>
+          <tr><td>RF diferença — sem externas</td><td>1,242</td><td>1,153</td></tr>
+          <tr><td>RF nível — semana (lags 1–7)</td><td>1,276</td><td>1,211</td></tr>
+          <tr><td>RF nível — ontem (lag 1)</td><td>1,278</td><td>1,231</td></tr>
+          <tr><td>RF nível — ontem + anteontem (lags 1–2)</td><td>1,279</td><td>1,202</td></tr>
+          <tr><td>RF nível — sem externas</td><td>1,283</td><td>1,257</td></tr>
+        </table>
+        <p>O modo diferença ganha em todos os conjuntos, porque árvores não extrapolam além dos valores vistos no treino. As externas defasadas reduzem o erro: de 1,242 sem externas para 1,219 com os lags 1–2. A semana inteira não melhora em relação aos lags 1–2 e acrescenta 10 colunas, então o conjunto escolhido é <strong>ontem + anteontem</strong>. A persistência (amanhã = hoje) é uma referência difícil de bater com h = 1: sem otimização, só o RF em diferença com externas fica abaixo dela, e por pouco. O grid search precisa superar essa marca. Os outros conjuntos e o modo nível continuam como opções no grid search.</p>
       </div>
 
       <div class="card">
         <h2>Tratamento de NA gerado pelos lags/janelas</h2>
-        <div class="fill">Como foram tratados os NAs criados no início da série (descarte, período de warm-up, etc.).</div>
+        <p>Os NAs aparecem só nos 30 primeiros dias da série, porque a maior exigência de histórico é a janela e o lag de 30 dias. Essas linhas são descartadas como período de warm-up, e todos os conjuntos de features usam as mesmas linhas, de 31/01/2013 em diante (1.431 dias de treino). O arquivo de teste é concatenado ao treino antes de criar as features, então os lags do início de 2017 usam os últimos dias de 2016 e o bloco de teste fica completo (114 dias, sem NAs).</p>
       </div>
 
-      <div class="fill">Lembrete: as mesmas features devem ser usadas no Random Forest e no modelo de especialização, quando compatível.</div>
+      <p>Random Forest e XGBoost usam exatamente a mesma tabela de features. O SARIMAX recebe só as externas defasadas como exógenas, porque os termos AR/MA já fazem o papel dos lags do alvo. O Holt-Winters é a referência univariada e não usa features.</p>
     </section>
 
     <!-- ============ PÁGINA 6 — WALK-FORWARD ============ -->
@@ -408,15 +427,26 @@
       <div class="eyebrow">Como a validação fora da amostra foi montada para esta base</div>
 
       <table>
-        <tr><th>Janela inicial de treino</th><td class="fill">tamanho / data de início e fim</td></tr>
-        <tr><th>Horizonte de previsão</th><td class="fill">h = ?</td></tr>
-        <tr><th>Passo de avanço</th><td class="fill">a cada quantos períodos avança</td></tr>
-        <tr><th>Nº de origens de previsão (folds)</th><td class="fill">-</td></tr>
-        <tr><th>Datas de origem</th><td class="fill">lista ou regra de geração</td></tr>
-        <tr><th>Conjunto de teste final</th><td class="fill">período reservado</td></tr>
+        <tr><th>Janela inicial de treino</th><td>Expansiva. Na validação, começa com 31/01/2013 a 31/12/2015 (1.065 dias, depois do warm-up de 30 dias das features). No teste, começa com 31/01/2013 a 31/12/2016 (1.431 dias).</td></tr>
+        <tr><th>Horizonte de previsão</th><td>h = 1 dia: na origem <em>t</em> (fim do dia <em>t−1</em>) prevê-se o dia <em>t</em></td></tr>
+        <tr><th>Passo de avanço</th><td>1 dia. A cada 7 dias o modelo é reajustado com todo o histórico anterior. Nos dias intermediários ele continua prevendo 1 dia à frente com os valores reais que vão chegando, mas sem reestimar os coeficientes.</td></tr>
+        <tr><th>Nº de origens de previsão (folds)</th><td>Validação: 121 origens (18 reajustes). Teste: 114 origens (17 reajustes).</td></tr>
+        <tr><th>Datas de origem</th><td>Todos os dias de 01/01 a 30/04/2016 (validação) e de 01/01 a 24/04/2017 (teste)</td></tr>
+        <tr><th>Conjunto de teste final</th><td>01/01 a 24/04/2017: o arquivo de teste original do dataset, usado uma única vez, com os hiperparâmetros já fixos</td></tr>
       </table>
 
-      <div class="fill">Confirme: todos os 4 modelos desta base usam exatamente as mesmas origens, horizonte e conjunto de teste.</div>
+      <figure class="chart">
+        <img src="img/walk_forward.png" alt="Linha do tempo da temperatura com o treino inicial em cinza, a validação de jan a abr de 2016 e o teste de jan a abr de 2017 destacados">
+        <figcaption>Treino inicial, validação (jan–abr/2016) e teste (jan–abr/2017).</figcaption>
+      </figure>
+
+      <div class="card">
+        <h2>Justificativa e regras</h2>
+        <p><strong>Validação em jan–abr/2016.</strong> É a mesma época do ano do teste (subida da temperatura depois do inverno), então o MAE usado para escolher os hiperparâmetros fica comparável ao que se espera no teste. Toda a escolha de hiperparâmetros acontece nessa janela, sem tocar no bloco de teste.</p>
+        <p><strong>Reajuste a cada 7 dias.</strong> O reajuste diário seria mais fiel, mas tornaria o grid search do SARIMAX inviável. Com reajuste semanal, a previsão continua sendo diária e sempre usa os valores reais até a véspera. Só os coeficientes ficam fixos por até 6 dias.</p>
+        <p><strong>Mesmo protocolo para os 4 modelos.</strong> SARIMAX, Holt-Winters, Random Forest e XGBoost usam as mesmas origens, o mesmo horizonte, o mesmo calendário de reajuste e o mesmo bloco de teste, por meio de uma única função de walk-forward no notebook. Os modelos estatísticos preveem os dias intermediários com a filtragem 1 passo à frente, com os parâmetros do último reajuste.</p>
+        <p><strong>Referência.</strong> A persistência (amanhã = hoje) tem MAE de 1,123 °C na validação. Esse é o piso que os quatro modelos precisam superar.</p>
+      </div>
     </section>
 
     <!-- ============ PÁGINA 7 — MODELOS E HIPERPARÂMETROS ============ -->
@@ -424,44 +454,90 @@
       <h1>Modelos e hiperparâmetros</h1>
       <div class="eyebrow">Espaço de busca, procedimento e configuração final</div>
 
+      <p>Critério único para todos os modelos: <strong>MAE do walk-forward nas 121 origens de validação</strong> (jan–abr/2016). O bloco de teste não é usado para nenhuma decisão.</p>
+
+      <div class="card">
+        <h2>Modelos de referência (base models)</h2>
+        <p>Previsões simples 1 passo à frente, que usam só os valores reais até a véspera. Cada uma tem um parâmetro escolhido pela validação e serve de régua para os quatro modelos.</p>
+        <table>
+          <tr><th>Modelo</th><th>Parâmetros testados</th><th>Escolhido</th><th>MAE validação (°C)</th></tr>
+          <tr><td>Média Móvel</td><td>k ∈ {1, 2, 3, 5, 7, 14, 30}</td><td>k = 1</td><td>1,123</td></tr>
+          <tr><td>Seasonal Naive</td><td>s ∈ {1, 2, 3, 7, 14, 30, 365}</td><td>s = 1</td><td>1,123</td></tr>
+          <tr><td>Delta</td><td>janela ∈ {1, 2, 3, 7, 14, 30}</td><td>janela = 30</td><td>1,125</td></tr>
+          <tr><td>EMA</td><td>α ∈ {0,1; …; 0,9}</td><td>α = 0,9</td><td>1,127</td></tr>
+          <tr><td>Média Acumulada</td><td>—</td><td>—</td><td>6,207</td></tr>
+        </table>
+        <figure class="chart">
+          <img src="img/base_models.png" alt="Barras com o MAE de validação de cada base model; média móvel, seasonal naive, delta e EMA ficam perto de 1,12 °C e a média acumulada passa de 6 °C">
+          <figcaption>MAE na validação (jan–abr/2016) da melhor configuração de cada base model.</figcaption>
+        </figure>
+        <p>Todos os modelos simples convergem para a <strong>persistência</strong> (amanhã = hoje): média móvel com k = 1 e seasonal naive com s = 1 são exatamente ela, e a EMA se aproxima à medida que α cresce. O mesmo dia do ano anterior (s = 365) erra 3,3 °C, porque a variação entre anos é grande perto da variação de um dia para o outro. A média acumulada ignora o ciclo anual e erra mais de 6 °C. A régua para os quatro modelos é, portanto, <strong>1,123 °C</strong>.</p>
+      </div>
+
+      <div class="card">
+        <h2>SARIMA (univariado)</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td>p, q ∈ {0, …, 3}; d ∈ {0, 1}; sazonal m = 7 com (P, Q) ∈ {(0,0), (1,0), (0,1), (1,1)}; e diferença anual (0,1,0,365). Total: 160 combinações.</td></tr>
+          <tr><th>Justificativa</th><td>q e p até 3: ACF e PACF da 1ª diferença significativas nos lags 1 a 3. d: ADF e KPSS discordam na série original e concordam na 1ª diferença. m = 365: força da sazonalidade 0,93 e pico de +0,68 na ACF no lag 365. P e Q no lag 365 são inviáveis: um único ajuste passou de 9 minutos sem terminar. m = 7: sem evidência na ACF (≈ 0 nos múltiplos de 7); fica no grid para comprovar a ausência.</td></tr>
+          <tr><th>Critério</th><td>Triagem por AIC no treino inicial, comparando só modelos com a mesma diferenciação. As 14 configurações com ΔAIC ≤ 2 em relação à melhor do grupo foram para o walk-forward, e a escolha final foi pelo MAE.</td></tr>
+          <tr><th>Configuração final</th><td><strong>SARIMA(2,0,1)</strong> com constante. MAE de validação: 1,152 °C.</td></tr>
+        </table>
+        <p>O termo semanal nunca melhorou o AIC (4.028,7 sem e 4.030,3 com, para d = 0), o que confirma que não há ciclo semanal. A diferença anual deixa a série estacionária, mas dobra a dispersão (dp de 3,0 °C contra 1,7 °C da 1ª diferença). Os modelos com ela erraram de 1,47 a 1,50 °C, bem acima dos sem ela (1,15 a 1,17 °C). Sem externas e sem um tratamento suave da sazonalidade, o melhor SARIMA não supera a persistência.</p>
+      </div>
+
       <div class="card">
         <h2>SARIMAX</h2>
         <table>
-          <tr><th>Espaço de busca</th><td class="fill">p,d,q / P,D,Q / m testados</td></tr>
-          <tr><th>Critério</th><td class="fill">AIC/BIC</td></tr>
-          <tr><th>Variáveis externas incluídas</th><td class="fill">-</td></tr>
-          <tr><th>Configuração final</th><td class="fill">-</td></tr>
+          <tr><th>Espaço de busca</th><td>p, q ∈ {0, …, 3}; d ∈ {0, 1}; sazonal m = 7 com (P, Q) ∈ {0, 1}² e D = 0; ciclo anual por termos de Fourier com K ∈ {1, 2, 3} harmônicos; externas: nenhuma, ontem (lag 1), ontem + anteontem (lags 1–2) ou semana (lags 1–7). Total: 1.536 combinações.</td></tr>
+          <tr><th>Justificativa</th><td>O ciclo anual entra como Fourier porque termos sazonais com m = 365 são inviáveis. K = 1 explica 91,6% da componente sazonal suavizada, K = 2 explica 98,9% e K = 3 explica 99,6%, então o intervalo 1–3 cobre o ponto em que o ganho satura. Os conjuntos de externas são os testados na página 5. p, q, d e m = 7 seguem a mesma evidência do SARIMA.</td></tr>
+          <tr><th>Critério</th><td>AIC no treino inicial (dentro de cada d) e depois MAE do walk-forward nas 12 configurações com ΔAIC ≤ 2. BIC registrado para comparação.</td></tr>
+          <tr><th>Variáveis externas incluídas</th><td>Umidade e vento de <strong>ontem</strong> (lag 1), mais Fourier anual com K = 3</td></tr>
+          <tr><th>Configuração final</th><td><strong>SARIMAX(3,1,3) com Fourier K = 3 e externas de ontem.</strong> MAE de validação: 1,192 °C.</td></tr>
         </table>
+        <p>O AIC melhorou muito de K = 1 para K = 2 (3.979 → 3.930) e pouco de 2 para 3 (→ 3.921), como a decomposição indicava. A semana inteira de externas teve o pior AIC (3.932, contra 3.921 de ontem + anteontem), e o termo semanal de novo não ajudou.</p>
+        <p><strong>Validação do modelo.</strong>
+          <br>• <strong>Ablação na mesma ordem:</strong> sem as externas, o MAE de validação sobe de 1,192 para 1,208 °C. A contribuição de umidade e vento é real, mas pequena.
+          <br>• <strong>Resíduos do ajuste no treino:</strong> o Ljung-Box não indica autocorrelação (p = 0,87 no lag 7, 0,54 no lag 14 e 0,58 no lag 30).
+          <br>• <strong>Ressalva:</strong> o ajuste dessa ordem não convergiu na triagem por AIC, e 386 das 1.536 combinações também não. No ajuste final, com todo o histórico até 2016, os coeficientes AR/MA ficam bem determinados (p &lt; 0,001, exceto ar.L1).</p>
       </div>
 
       <div class="card">
         <h2>Holt-Winters (referência univariada)</h2>
         <table>
-          <tr><th>Tendência</th><td class="fill">aditiva/multiplicativa/amortecida</td></tr>
-          <tr><th>Sazonalidade</th><td class="fill">aditiva/multiplicativa</td></tr>
-          <tr><th>Período sazonal</th><td class="fill">-</td></tr>
-          <tr><th>Parâmetros de suavização</th><td class="fill">alpha, beta, gamma</td></tr>
+          <tr><th>Tendência</th><td>Testadas: nenhuma, aditiva, multiplicativa, amortecida ou não. <strong>Escolhida: multiplicativa amortecida</strong>, mas com β = 0 e φ = 0,995 ela fica praticamente constante, o que é coerente com a força de tendência de 0,19. As cinco opções de tendência empataram (1,116 a 1,118 °C).</td></tr>
+          <tr><th>Sazonalidade</th><td>Testadas: nenhuma, aditiva e multiplicativa. <strong>Escolhida: aditiva</strong>, coerente com a amplitude estável do ciclo. A multiplicativa errou 1,435 °C.</td></tr>
+          <tr><th>Período sazonal</th><td>Testados: 365 e 7. <strong>Escolhido: 365.</strong> O período 7 ficou entre 1,20 e 1,23 °C.</td></tr>
+          <tr><th>Parâmetros de suavização</th><td>α = 0,766 (o nível acompanha de perto a temperatura recente), β = 0, γ = 0,05 e φ = 0,995. α, β e φ foram estimados por máxima verossimilhança; γ fez parte do grid.</td></tr>
+          <tr><th>Inicialização</th><td><strong>Perfil de Fourier (K = 2)</strong>, ajustado só no histórico de cada reajuste, contra a inicialização heurística</td></tr>
         </table>
+        <p>Com a inicialização heurística, a sazonalidade anual <em>piorava</em> o modelo (1,358 °C): cada um dos 365 índices sazonais é visto só 3 vezes no treino e nasce com o ruído diário embutido. Iniciando os índices por um perfil suave e limitando γ, o MAE cai para <strong>1,116 °C</strong>, o único modelo estatístico abaixo da persistência na validação. Com o ponto de partida limpo, o γ estimado livremente cai de 0,17 para 0,056.</p>
       </div>
 
       <div class="card">
         <h2>Random Forest</h2>
         <table>
-          <tr><th>Espaço de busca</th><td class="fill">n_estimators, max_depth, min_samples_split, min_samples_leaf, max_features</td></tr>
-          <tr><th>Método de otimização</th><td class="fill">grid/random/bayes search + validação</td></tr>
-          <tr><th>Configuração final</th><td class="fill">-</td></tr>
+          <tr><th>Espaço de busca</th><td>max_depth ∈ {None, 8, 15}; min_samples_split ∈ {2, 10}; min_samples_leaf ∈ {1, 4, 10}; max_features ∈ {sqrt, 0,5, 1,0}; modo do alvo ∈ {nível, diferença}. São 108 combinações com 300 árvores; depois, n_estimators ∈ {100, 300, 600} na melhor.</td></tr>
+          <tr><th>Método de otimização</th><td>Grid search em duas etapas com MAE do walk-forward na validação. n_estimators fica para a segunda etapa porque mais árvores só reduzem a variância e o ganho satura (100: 1,063; 300: 1,059; 600: 1,061).</td></tr>
+          <tr><th>Configuração final</th><td><strong>max_depth = None, min_samples_split = 10, min_samples_leaf = 10, max_features = 1,0, 300 árvores, modo diferença.</strong> MAE de validação: 1,059 °C.</td></tr>
         </table>
+        <p>O modo do alvo é o hiperparâmetro que mais pesa: 1,078 °C em média no modo diferença contra 1,219 no modo nível. Folhas grandes (min_samples_leaf = 10) foram as melhores em média (1,140 contra 1,158 com folha 1), porque evitam que as árvores decorem o ruído diário.</p>
       </div>
 
       <div class="card">
-        <h2>Modelo de especialização — [nome]</h2>
+        <h2>Modelo de especialização — XGBoost Regressor</h2>
         <table>
-          <tr><th>Principais hiperparâmetros</th><td class="fill">-</td></tr>
-          <tr><th>Intervalos testados</th><td class="fill">-</td></tr>
-          <tr><th>Método de busca</th><td class="fill">-</td></tr>
-          <tr><th>Configuração final</th><td class="fill">-</td></tr>
+          <tr><th>Principais hiperparâmetros</th><td>max_depth (ordem das interações), learning_rate e n_estimators (tamanho do passo e número de árvores, em conjunto), subsample e colsample_bytree (aleatoriedade por árvore), min_child_weight (peso mínimo por folha), reg_lambda (regularização L2) e modo do alvo</td></tr>
+          <tr><th>Intervalos testados</th><td>max_depth ∈ {3, 5, 7}; learning_rate ∈ {0,03, 0,1}; n_estimators ∈ {300, 800}; subsample ∈ {0,7, 1,0}; colsample_bytree ∈ {0,7, 1,0}; min_child_weight ∈ {1, 5}; reg_lambda ∈ {1, 10}; modo ∈ {nível, diferença}. Depois, reg_lambda refinado em {1; 3,3; 10; 30; 100}.</td></tr>
+          <tr><th>Método de busca</th><td>Grid search com 384 combinações e MAE do walk-forward na validação, mais o refino da regularização L2 em torno do melhor valor</td></tr>
+          <tr><th>Configuração final</th><td><strong>max_depth = 5, learning_rate = 0,03, 300 árvores, subsample = 1,0, colsample_bytree = 0,7, min_child_weight = 5, reg_lambda = 30, modo diferença.</strong> MAE de validação: 1,041 °C.</td></tr>
         </table>
+        <p>Tudo o que regulariza ajudou. A taxa de aprendizado menor ganhou (1,171 contra 1,230 em média), assim como menos árvores (300: 1,183; 800: 1,218), árvores mais rasas (profundidade 3: 1,185; 7: 1,215) e L2 mais forte (10: 1,193; 1: 1,208), e o refino levou a reg_lambda = 30. Faz sentido: no modo diferença o alvo é a variação de um dia para o outro, que é quase toda ruído.</p>
       </div>
+
+      <figure class="chart">
+        <img src="img/validacao_modelos.png" alt="MAE de validação: XGBoost 1,041, Random Forest 1,059, Holt-Winters 1,116, base models perto de 1,123, SARIMA 1,152 e SARIMAX 1,192">
+        <figcaption>MAE de validação (jan–abr/2016) das configurações escolhidas. Em verde, os modelos; em cinza, os base models; a linha tracejada é a persistência.</figcaption>
+      </figure>
     </section>
 
     <!-- ============ PÁGINA 8 — RESULTADOS MAE ============ -->
@@ -469,17 +545,36 @@
       <h1>Resultados comparativos (MAE)</h1>
       <div class="eyebrow">Erro fora da amostra do protocolo walk-forward, apenas para esta base</div>
 
+      <p>Walk-forward nas 114 origens do teste (01/01 a 24/04/2017), com h = 1, reajuste a cada 7 dias e as configurações escolhidas na validação fixas.</p>
+
       <table>
-        <tr><th>Modelo</th><th>MAE</th><th>Ranking</th></tr>
-        <tr><td>SARIMAX</td><td class="fill">-</td><td class="fill">-</td></tr>
-        <tr><td>Holt-Winters</td><td class="fill">-</td><td class="fill">-</td></tr>
-        <tr><td>Random Forest</td><td class="fill">-</td><td class="fill">-</td></tr>
-        <tr><td>[Especialização]</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><th>Modelo</th><th>MAE teste (°C)</th><th>Ranking</th><th>MAE validação (°C)</th><th>Tempo no teste</th></tr>
+        <tr><td><strong>SARIMAX</strong></td><td><strong>1,243</strong></td><td>1º</td><td>1,192</td><td>122 s</td></tr>
+        <tr><td>Holt-Winters</td><td>1,305</td><td>2º</td><td>1,116</td><td>4 s</td></tr>
+        <tr><td>Random Forest</td><td>1,312</td><td>3º</td><td>1,059</td><td>112 s</td></tr>
+        <tr><td><em>Persistência (referência)</em></td><td><em>1,314</em></td><td>—</td><td><em>1,123</em></td><td>—</td></tr>
+        <tr><td>SARIMA (univariado)</td><td>1,336</td><td>4º</td><td>1,152</td><td>15 s</td></tr>
+        <tr><td>XGBoost (especialização)</td><td>1,343</td><td>5º</td><td>1,041</td><td>19 s</td></tr>
       </table>
+      <p style="font-size:.85rem;color:var(--muted)">Arquivo consolidado: <code>temperatura/mae_temperatura.csv</code>. Previsões e resíduos dia a dia: <code>temperatura/resultados_teste.csv</code>.</p>
 
-      <div class="placeholder-img">gráfico: previsões vs. real (todas os modelos) nesta base</div>
+      <figure class="chart">
+        <img src="img/previsoes_teste.png" alt="Temperatura real de jan a abr de 2017 e as previsões dos cinco modelos e da persistência, todas acompanhando a curva real com um dia de atraso">
+        <figcaption>Previsões walk-forward (h = 1) contra o valor real no bloco de teste.</figcaption>
+      </figure>
 
-      <div class="fill">Discuta por que o melhor modelo desta base venceu — relacione com características da série (força de sazonalidade, ruído, presença de externas relevantes, tamanho da amostra).</div>
+      <div class="card">
+        <h2>Discussão</h2>
+        <p><strong>O SARIMAX venceu, com 1,243 °C, 5,4% abaixo da persistência.</strong> É o modelo que combina explicitamente os dois traços mais fortes da série: o ciclo anual, que responde por 93% da variação (força da sazonalidade de 0,93), entra como uma curva suave de Fourier, e a persistência diária entra pelos termos ARIMA. Com isso, ele é o mais preciso em janeiro (1,33 °C), fevereiro (1,08 °C) e abril (0,90 °C), e é o único com viés levemente negativo (−0,12 °C).</p>
+        <p><strong>A ordem da validação não se repetiu no teste.</strong> XGBoost e Random Forest foram os melhores na validação (1,041 e 1,059 °C) e ficaram em 5º e 3º no teste, no nível da persistência ou acima dela. O SARIMAX, pior na validação, foi o melhor no teste. Três fatores ajudam a explicar:</p>
+        <ul>
+          <li><strong>As diferenças são pequenas.</strong> No teste, os seis modelos ficam numa faixa de 0,10 °C, menos de 10% do erro médio. Com 121 dias de validação, essa ordem é instável.</li>
+          <li><strong>Otimismo da seleção nas árvores.</strong> O XGBoost escolheu entre 384 configurações, e o Random Forest entre 108, usando os mesmos 121 dias. Quanto mais configurações se compara, mais o MAE de validação da vencedora tende a subestimar o erro futuro. O SARIMAX, mais rígido, sofre menos com isso.</li>
+          <li><strong>O teste foi mais difícil.</strong> A própria persistência piorou de 1,123 °C (jan–abr/2016) para 1,314 °C (jan–abr/2017): houve mais variação de um dia para o outro, principalmente em janeiro e março.</li>
+        </ul>
+        <p><strong>Relação com as características da base.</strong> Com h = 1, a temperatura de ontem já carrega quase toda a informação, e todos os modelos ficam perto da persistência. O ganho possível está em antecipar parte da variação diária. As externas ajudam pouco: só o vento tem efeito consistente (página 10). A amostra é curta para modelos flexíveis: são 4 ciclos anuais, e cada dia do ano é visto só 3 vezes antes da validação.</p>
+        <p style="font-size:.9rem;color:var(--muted)">A diferença entre o SARIMAX e a persistência (0,07 °C) não passou por teste de significância. Um teste de Diebold-Mariano sobre os erros diários seria o próximo passo para afirmar que a vantagem não é ruído.</p>
+      </div>
     </section>
 
     <!-- ============ PÁGINA 9 — RESÍDUOS ============ -->
@@ -487,20 +582,30 @@
       <h1>Análise dos resíduos</h1>
       <div class="eyebrow">Erros fora da amostra, por modelo</div>
 
-      <div class="grid2">
-        <div class="placeholder-img">resíduos ao longo do tempo</div>
-        <div class="placeholder-img">ACF dos resíduos</div>
-      </div>
+      <figure class="chart">
+        <img src="img/residuos.png" alt="Para cada modelo, os resíduos diários do teste em barras à esquerda e a ACF dos resíduos à direita, sem picos fora da banda de confiança">
+        <figcaption>Resíduos (real − previsto) ao longo do teste e ACF até o lag 20, por modelo. A linha tracejada marca a média (viés).</figcaption>
+      </figure>
 
       <table>
-        <tr><th>Modelo</th><th>Estatística Ljung-Box</th><th>p-valor</th><th>Interpretação</th></tr>
-        <tr><td>SARIMAX</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
-        <tr><td>Holt-Winters</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
-        <tr><td>Random Forest</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
-        <tr><td>[Especialização]</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+        <tr><th>Modelo</th><th>Ljung-Box lag 7 (p-valor)</th><th>Ljung-Box lag 14 (p-valor)</th><th>Viés (°C)</th><th>dp (°C)</th><th>ACF lag 1</th><th>Interpretação</th></tr>
+        <tr><td>SARIMAX</td><td>5,25 (0,63)</td><td>12,17 (0,59)</td><td>−0,12</td><td>1,58</td><td>0,08</td><td>Sem autocorrelação; menor dispersão</td></tr>
+        <tr><td>Holt-Winters</td><td>8,51 (0,29)</td><td>14,41 (0,42)</td><td>0,00</td><td>1,69</td><td>0,09</td><td>Sem autocorrelação; sem viés</td></tr>
+        <tr><td>Random Forest</td><td>4,46 (0,73)</td><td>8,95 (0,83)</td><td>+0,17</td><td>1,63</td><td>0,00</td><td>Sem autocorrelação; prevê abaixo do real</td></tr>
+        <tr><td>XGBoost</td><td>4,62 (0,71)</td><td>8,47 (0,86)</td><td>+0,21</td><td>1,65</td><td>0,05</td><td>Sem autocorrelação; prevê abaixo do real</td></tr>
+        <tr><td>SARIMA</td><td>5,81 (0,56)</td><td>11,55 (0,64)</td><td>+0,28</td><td>1,67</td><td>0,09</td><td>Sem autocorrelação; maior viés</td></tr>
+        <tr><td><em>Persistência</em></td><td><em>6,04 (0,54)</em></td><td><em>10,78 (0,70)</em></td><td><em>+0,15</em></td><td><em>1,69</em></td><td><em>−0,12</em></td><td><em>Referência</em></td></tr>
       </table>
+      <p style="font-size:.85rem;color:var(--muted)">Ljung-Box com H0: resíduos sem autocorrelação até o lag indicado. Com 114 pontos, usam-se os lags 7 e 14. Tabela completa em <code>temperatura/ljung_box_temperatura.csv</code>.</p>
 
-      <div class="fill">Discuta viés, padrões remanescentes, variabilidade e autocorrelação por modelo.</div>
+      <div class="card">
+        <h2>Discussão</h2>
+        <p><strong>Autocorrelação.</strong> Nenhum modelo deixou estrutura temporal nos resíduos: todos os p-valores do Ljung-Box ficam acima de 0,29, e as ACFs não têm picos fora da banda. Ou seja, nenhum modelo deixou de usar informação do passado recente. O que sobra é a variação do dia, que os dados disponíveis não antecipam. Um p-valor alto indica ausência de evidência de autocorrelação, não prova de independência, ainda mais com 114 pontos.</p>
+        <p><strong>Viés.</strong> SARIMA (+0,28 °C), XGBoost (+0,21) e Random Forest (+0,17) preveem, em média, abaixo do real: entre 60% e 62% dos dias foram subestimados. O teste é a época de subida da temperatura depois do inverno, e esses modelos chegam com atraso à subida contínua. O Holt-Winters não tem viés (0,00), e o SARIMAX tem um viés pequeno no sentido oposto (−0,12), graças à curva sazonal explícita, que já "sabe" que a temperatura sobe nessa época.</p>
+        <p><strong>Variabilidade.</strong> O desvio-padrão fica entre 1,58 (SARIMAX) e 1,69 °C, e os erros extremos chegam a ±4,5 °C nas viradas bruscas (frentes frias e dias de chuva). O erro médio muda com a época: é maior em janeiro (1,33 a 1,51 °C) e março (1,46 a 1,62 °C), com as quedas bruscas de temperatura, e menor em abril (0,90 a 1,13 °C), quando a subida é mais regular.</p>
+        <p><strong>Persistência como contraste.</strong> Só ela tem ACF negativa no lag 1 (−0,12). Depois de uma virada, ela erra duas vezes seguidas em sentidos opostos. Os modelos eliminam esse padrão (ACF entre 0,00 e 0,09), sinal de que aprenderam a corrigir parte do movimento de ontem.</p>
+        <p><strong>Os modelos só repetem ontem?</strong> Não, mas ficam ancorados nele. Na validação, XGBoost e Random Forest mudam a previsão em relação a ontem em ~80% dos dias e acertam a direção da variação em 69% e 71% dos dias com variação acima de 0,5 °C (o acaso daria 50%). Porém preveem variações médias de 0,29 a 0,34 °C, contra 1,12 °C de variação real. Com informação fraca sobre o dia seguinte, ficar perto de ontem é o que minimiza o MAE.</p>
+      </div>
     </section>
 
     <!-- ============ PÁGINA 10 — IMPORTÂNCIA DAS FEATURES ============ -->
@@ -508,34 +613,85 @@
       <h1>Importância das features</h1>
       <div class="eyebrow">Random Forest e modelo de especialização (SARIMAX via coeficientes)</div>
 
-      <div class="grid2">
-        <div class="placeholder-img">importância — Random Forest</div>
-        <div class="placeholder-img">importância — [Especialização]</div>
-      </div>
+      <p>Modelos finais reajustados em todo o histórico anterior ao teste (31/01/2013 a 31/12/2016), com os hiperparâmetros fixos. A permutação foi avaliada no teste, com o MAE como métrica, no mesmo espaço de alvo do modelo (diferença). Como os lags e as janelas da temperatura são muito correlacionados entre si, também se embaralham juntas as colunas de cada grupo. As externas aparecem em terracota.</p>
+
+      <figure class="chart">
+        <img src="img/importancia_random_forest.png" alt="Random Forest: importância nativa, importância por permutação e permutação por grupo; lags do alvo e vento com importância positiva, umidade e janelas móveis negativas">
+        <figcaption>Random Forest: importância nativa (impureza), Permutation Importance e permutação por grupo.</figcaption>
+      </figure>
+      <figure class="chart">
+        <img src="img/importancia_xgboost.png" alt="XGBoost: gain, importância por permutação e permutação por grupo; lags do alvo, calendário e vento positivos, umidade e janelas móveis negativas">
+        <figcaption>XGBoost: gain, Permutation Importance e permutação por grupo.</figcaption>
+      </figure>
+
+      <table>
+        <tr><th>Grupo (permutação conjunta)</th><th>Random Forest: aumento do MAE (°C)</th><th>XGBoost: aumento do MAE (°C)</th></tr>
+        <tr><td>Lags do alvo</td><td>+0,039</td><td>+0,046</td></tr>
+        <tr><td>Vento (defasado)</td><td>+0,019</td><td>+0,025</td></tr>
+        <tr><td>Calendário (dia do ano)</td><td>+0,010</td><td>+0,028</td></tr>
+        <tr><td>Umidade (defasada)</td><td>−0,031</td><td>−0,017</td></tr>
+        <tr><td>Janelas móveis</td><td>−0,032</td><td>−0,032</td></tr>
+      </table>
 
       <div class="card">
         <h2>SARIMAX — coeficientes das variáveis externas</h2>
         <table>
-          <tr><th>Variável</th><th>Coeficiente</th><th>Sinal</th><th>Significância</th></tr>
-          <tr><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td><td class="fill">-</td></tr>
+          <tr><th>Variável</th><th>Coeficiente</th><th>Magnitude (°C por dp)</th><th>Sinal</th><th>Significância</th></tr>
+          <tr><td><code>wind_speed_lag1</code> (vento de ontem)</td><td>−0,026</td><td>−0,12</td><td>−</td><td>p = 0,017 — significativo</td></tr>
+          <tr><td><code>humidity_lag1</code> (umidade de ontem)</td><td>+0,003</td><td>+0,06</td><td>+</td><td>p = 0,567 — não significativo</td></tr>
+          <tr><td>Fourier cos1 (ciclo anual)</td><td>−9,311</td><td>−6,53</td><td>−</td><td>p &lt; 0,001</td></tr>
+          <tr><td>Fourier sin2 / cos2</td><td>−1,674 / −2,492</td><td>−1,19 / −1,75</td><td>−</td><td>p &lt; 0,001</td></tr>
         </table>
+        <p>O 1º harmônico anual domina: ele sozinho desloca a previsão em 6,5 °C por desvio-padrão, contra 0,12 °C do vento. Os harmônicos 2 e 3 dão a assimetria do ciclo, com o patamar da monção e a queda rápida no outono.</p>
       </div>
 
-      <div class="fill">Destaque o papel das variáveis externas e retome sua disponibilidade real na data de previsão.</div>
+      <div class="card">
+        <h2>Holt-Winters — componentes</h2>
+        <figure class="chart">
+          <img src="img/componentes_hw.png" alt="Componentes do Holt-Winters ajustado até 2016: nível acompanhando a temperatura, tendência praticamente constante e sazonalidade anual suave">
+          <figcaption>Nível, tendência e sazonalidade do Holt-Winters ajustado até 31/12/2016.</figcaption>
+        </figure>
+        <p>O Holt-Winters não tem features. Com α = 0,77, o nível segue de perto a temperatura dos últimos dias. Com β = 0 e φ = 0,995, a tendência é praticamente constante. Com γ = 0,05, o perfil sazonal anual muda devagar e preserva a forma suave dada pela inicialização de Fourier.</p>
+      </div>
+
+      <div class="card">
+        <h2>Papel das variáveis externas</h2>
+        <p><strong>O vento de ontem é a única externa útil nos três modelos.</strong> Ele aumenta o MAE quando embaralhado no Random Forest (+0,019 °C) e no XGBoost (+0,025), e é significativo no SARIMAX, com sinal negativo: mais vento hoje antecede um dia seguinte um pouco mais frio, o que é coerente com a chegada de frentes.</p>
+        <p><strong>A umidade não ajudou no teste.</strong> Embaralhá-la <em>reduz</em> o MAE nas duas árvores (−0,031 e −0,017), e o coeficiente dela no SARIMAX não é significativo. A correlação de −0,57 com a temperatura é, em boa parte, sazonal (seca no pré-monção, úmida no inverno e na monção), e essa informação já chega pelo calendário e pelos lags. As janelas móveis mostram o mesmo padrão: repetem o que os lags já informam e acabam acrescentando ruído.</p>
+        <p><strong>Disponibilidade na data da previsão.</strong> Todas as externas entram defasadas: só os valores de ontem (e de anteontem, nas árvores), medidos antes da origem da previsão. Nenhum modelo usa a umidade ou o vento do dia previsto, e a checagem automática da página 5 confirma que nenhuma feature depende do próprio dia <em>t</em>. Uma previsão meteorológica disponível na origem poderia melhorar os resultados, mas teria que ser identificada como previsão.</p>
+        <p style="font-size:.9rem;color:var(--muted)">Os resultados de importância vêm do bloco de teste e servem só para interpretação. Tirar a umidade ou as janelas com base neles seria usar o teste para tomar decisões. Essa escolha, se for feita, deve passar pela validação.</p>
+      </div>
     </section>
 
     <!-- ============ PÁGINA 11 — CONCLUSÃO DA BASE ============ -->
     <section class="page" id="p11">
       <h1>Conclusão desta base</h1>
-      <div class="fill">
-        Resuma: melhor modelo, por quê, principais limitações encontradas especificamente nesta base,
-        e qualquer decisão metodológica que precisou de ajuste (ex: base menos sazonal, poucos dados, variável externa descartada).
+      <div class="eyebrow">Temperatura média diária de Delhi, h = 1 dia</div>
+
+      <div class="card">
+        <h2>Melhor modelo</h2>
+        <p>O <strong>SARIMAX(3,1,3) com Fourier anual (K = 3) e umidade e vento de ontem</strong> teve o menor erro no teste: 1,243 °C, contra 1,314 °C da persistência. Ele vence porque representa de forma explícita e suave o ciclo anual, que é a característica dominante da série (F<sub>S</sub> = 0,93), e deixa os termos ARIMA cuidarem da dinâmica de curto prazo. Foi também o modelo com menor dispersão e menor viés nos resíduos.</p>
       </div>
-      <div class="fill">
-        Lembrete: resumo executivo, integrantes/divisão de tarefas, explicação aprofundada do modelo de especialização,
-        conclusões gerais, referências e apêndice de demandas são <strong>únicos para o grupo</strong> —
-        não precisam ser repetidos em cada uma das 5 páginas de base. Coloque-os num arquivo "índice.html"
-        que linka as 5 bases, ou apenas numa das páginas, como preferirem.
+
+      <div class="card">
+        <h2>Principais limitações</h2>
+        <ul>
+          <li><strong>Teto imposto pelo horizonte.</strong> Com h = 1, todos os modelos ficam a menos de 0,1 °C da persistência. As viradas bruscas (frentes frias, chuva) não aparecem nos dados do dia anterior, e são elas que concentram os maiores erros.</li>
+          <li><strong>Ordem instável entre validação e teste.</strong> As árvores lideraram a validação e não confirmaram no teste. Com diferenças tão pequenas, 121 dias de validação não bastam para ordenar os modelos com segurança.</li>
+          <li><strong>Poucos ciclos.</strong> Com 4 anos, cada dia do ano é visto 3 vezes antes da validação. Isso inviabiliza a sazonalidade m = 365 no SARIMA, prejudica o Holt-Winters com inicialização padrão e torna a diferença anual ruidosa.</li>
+          <li><strong>Teste curto e sazonalmente concentrado.</strong> Jan–abr/2017 cobre só a fase de subida da temperatura. Não há como saber, por exemplo, o desempenho na monção.</li>
+          <li><strong>Convergência.</strong> Parte do grid do SARIMAX não convergiu (386 de 1.536 combinações), inclusive a ordem escolhida, na triagem.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Decisões metodológicas que precisaram de ajuste</h2>
+        <ul>
+          <li><strong><code>meanpressure</code> excluída</strong> por valores fisicamente impossíveis, e a última linha do treino removida por estar incompleta e coincidir com o início do teste.</li>
+          <li><strong>Sazonalidade anual tratada sem m = 365:</strong> Fourier no SARIMAX, diferença anual testada no SARIMA, e inicialização por perfil de Fourier com γ no grid no Holt-Winters.</li>
+          <li><strong>Árvores no modo diferença</strong> (prevendo a variação em relação a ontem), porque árvores não extrapolam o nível. Esse foi o hiperparâmetro de maior efeito nas duas.</li>
+          <li><strong>Externas só defasadas</strong>, já que umidade e vento do dia previsto não são conhecidos na origem. No fim, só o vento mostrou valor.</li>
+        </ul>
       </div>
     </section>
 

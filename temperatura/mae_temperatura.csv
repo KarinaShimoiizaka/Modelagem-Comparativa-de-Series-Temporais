@@ -1,0 +1,7 @@
+base,modelo,configuração,MAE validação,MAE teste,tempo teste (s),ranking
+Temperatura (Delhi),SARIMAX,"SARIMAX(3, 1, 3) K=3 | ontem (lag 1)",1.1919616127159063,1.2428658544917444,122.28881580000052,1
+Temperatura (Delhi),Holt-Winters,tendência mul amortecida | sazonal add (m=365) | init fourier | γ 0.05,1.116394005369979,1.3045742292750049,4.135689300000195,2
+Temperatura (Delhi),Random Forest,"{'max_depth': None, 'min_samples_split': 10, 'min_samples_leaf': 10, 'max_features': 1.0, 'n_estimators': 300} | modo diferença",1.0592318749757679,1.3123145288432978,111.74361339999996,3
+Temperatura (Delhi),Persistência,y[t-1],1.122853902296051,1.3136235062381887,0.019887800000105926,4
+Temperatura (Delhi),SARIMA,"SARIMA(2, 0, 1)",1.152134341696375,1.335849181218595,15.059796799999276,5
+Temperatura (Delhi),XGBoost,"{'max_depth': 5, 'learning_rate': 0.03, 'n_estimators': 300, 'subsample': 1.0, 'colsample_bytree': 0.7, 'min_child_weight': 5.0, 'reg_lambda': 30.0} | modo diferença",1.0412250258316602,1.343157658714545,19.278351299999485,6
