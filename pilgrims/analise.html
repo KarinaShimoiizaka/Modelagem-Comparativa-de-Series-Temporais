@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilgrim's Pride — PPC | Séries Temporais</title>
+<style>
+  :root{
+    --ink:#1b1f23;
+    --paper:#fbfaf7;
+    --panel:#ffffff;
+    --line:#dcd7cc;
+    --muted:#6b6558;
+    --accent:#2f5d50;      /* verde-escuro, remete a "trend/growth" */
+    --accent-soft:#e4ede9;
+    --warn:#9a4b3a;        /* terracota escurecido, usado só em alertas/vazamento */
+    --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15.5px;
+    line-height:1.55;
+  }
+
+  /* ---------- layout geral: nav lateral + páginas ---------- */
+  .app{ display:flex; min-height:100vh; }
+
+  nav.pages{
+    width:250px;
+    flex-shrink:0;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:28px 0;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  nav.pages .brand{
+    font-family:var(--font-display);
+    font-size:1.05rem;
+    padding:0 24px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:8px;
+  }
+  nav.pages .brand small{
+    display:block; color:var(--muted); font-family:var(--font-body); font-size:.78rem; margin-top:4px;
+  }
+  nav.pages button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:9px 24px;
+    font:inherit;
+    font-size:.92rem;
+    color:var(--muted);
+    cursor:pointer;
+    border-left:3px solid transparent;
+  }
+  nav.pages button:hover{ color:var(--ink); background:var(--accent-soft); }
+  nav.pages button.active{
+    color:var(--accent);
+    border-left-color:var(--accent);
+    background:var(--accent-soft);
+    font-weight:600;
+  }
+
+  main{ flex:1; padding:48px 56px 80px; max-width:980px; }
+
+  section.page{ display:none; animation:fade .25s ease; }
+  section.page.active{ display:block; }
+  @keyframes fade{ from{opacity:0} to{opacity:1} }
+
+  h1{ font-family:var(--font-display); font-size:2rem; margin:0 0 6px; }
+  h2{ font-family:var(--font-display); font-size:1.3rem; margin:0 0 18px; color:var(--accent); }
+  h3{ font-size:1.02rem; margin:28px 0 8px; }
+  .eyebrow{ color:var(--muted); font-size:.85rem; margin-bottom:24px; }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:20px 22px;
+    margin-bottom:18px;
+  }
+
+  .fill{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    padding:14px 16px;
+    color:var(--muted);
+    font-size:.9rem;
+    margin:10px 0 20px;
+  }
+  .fill code{ font-family:var(--font-mono); font-size:.82rem; }
+
+  table{ width:100%; border-collapse:collapse; margin:12px 0 20px; font-size:.9rem; }
+  th,td{ border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); font-weight:600; }
+
+  .placeholder-img{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:.85rem;
+    margin:10px 0 20px;
+  }
+
+  .flag{
+    display:inline-block;
+    font-size:.72rem;
+    padding:2px 8px;
+    border-radius:3px;
+    font-weight:600;
+  }
+  .flag.leak{ background:#f4e3de; color:var(--warn); }
+  .flag.ok{ background:var(--accent-soft); color:var(--accent); }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+  figure.chart{ margin:10px 0 20px; }
+  figure.chart img{ display:block; width:100%; height:auto; border:1px solid var(--line); border-radius:4px; background:#fff; }
+  figure.chart figcaption{ color:var(--muted); font-size:.8rem; margin-top:6px; }
+
+  .pager{
+    display:flex; justify-content:space-between; margin-top:40px;
+    border-top:1px solid var(--line); padding-top:16px;
+  }
+  .pager button{
+    background:var(--accent); color:#fff; border:none; padding:9px 16px;
+    border-radius:4px; cursor:pointer; font-size:.85rem;
+  }
+  .pager button:disabled{ opacity:.35; cursor:default; }
+
+  @media (max-width:800px){
+    .app{ flex-direction:column; }
+    nav.pages{ width:100%; height:auto; position:relative; }
+    main{ padding:28px 20px 60px; }
+    .grid2{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- impressão: mostra TODAS as etapas, uma por página ---------- */
+  @media print{
+    nav.pages, .pager{ display:none !important; }
+
+    .app{ display:block; }
+    main{ padding:0; max-width:none; }
+
+    /* remove o controle de visibilidade via JS e mostra todas as seções */
+    section.page{
+      display:block !important;
+      opacity:1 !important;
+      animation:none !important;
+    }
+
+    /* cada etapa começa em uma nova página impressa */
+    section.page{
+      break-before:page;
+      page-break-before:always;
+    }
+    /* a primeira não precisa forçar quebra antes dela */
+    section.page:first-of-type{
+      break-before:auto;
+      page-break-before:auto;
+    }
+
+    /* evita que título fique "órfão" separado do conteúdo, e que
+       cards/tabelas sejam cortados ao meio entre páginas */
+    h1, h2, h3{ break-after:avoid; page-break-after:avoid; }
+    .card, table, .placeholder-img, .grid2{ break-inside:avoid; page-break-inside:avoid; }
+
+    body{ background:#fff; }
+    .card{ border-color:#999; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================================================
+       NAVEGAÇÃO — cada botão = uma "página" do relatório
+       ====================================================== -->
+  <nav class="pages">
+    <div class="brand">
+      Pilgrim's Pride <br>
+      <small>Ação PPC (NASDAQ) — Grupo 01</small>
+    </div>
+    <button class="nav-btn active" data-page="p1">1. Visão geral da base</button>
+    <button class="nav-btn" data-page="p2">2. Variáveis externas</button>
+    <button class="nav-btn" data-page="p3">3. Limpeza e exploração</button>
+    <button class="nav-btn" data-page="p4">4. Decomposição STL</button>
+    <button class="nav-btn" data-page="p5">5. Feature engineering</button>
+    <button class="nav-btn" data-page="p6">6. Walk-forward</button>
+    <button class="nav-btn" data-page="p7">7. Modelos &amp; hiperparâmetros</button>
+    <button class="nav-btn" data-page="p8">8. Resultados (MAE)</button>
+    <button class="nav-btn" data-page="p9">9. Resíduos &amp; Ljung-Box</button>
+    <button class="nav-btn" data-page="p10">10. Importância das features</button>
+    <button class="nav-btn" data-page="p11">11. Conclusão da base</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ PÁGINA 1 — VISÃO GERAL DA BASE ============ -->
+    <section class="page active" id="p1">
+      <h1>Pilgrim's Pride Corporation (PPC)</h1>
+      <div class="eyebrow">Fonte, período e características gerais da série-alvo</div>
+
+      <div class="card">
+        <h2>Ficha da base</h2>
+        <table>
+          <tr><th>Fonte dos dados</th><td>Cotações diárias do Yahoo Finance (formato da biblioteca <code>yfinance</code>, com colunas <code>Dividends</code> e <code>Stock Splits</code>). O arquivo <code>data/Pilgrim_s_Pride_Corporation.csv</code> traz o histórico completo da PPC desde 1987. O arquivo usado na modelagem, <code>data/Pilgrim_s_Pride_Corporation_2.csv</code>, junta a PPC com os fechamentos de TSN, XLP, CALM e da taxa USD/MXN no mesmo calendário.</td></tr>
+          <tr><th>Variável-alvo</th><td><code>Close</code>: preço de fechamento diário da ação da Pilgrim's Pride, segunda maior processadora de frango dos EUA (controlada pela JBS), ajustado por dividendos. O ajuste está confirmado: os quatro dividendos especiais do período, entre eles US$ 6,30 em 03/04/2025, não geram saltos na série.</td></tr>
+          <tr><th>Unidade</th><td>US$ por ação</td></tr>
+          <tr><th>Frequência</th><td>Diária, em dias úteis (pregões da bolsa americana)</td></tr>
+          <tr><th>Período coberto</th><td>25/07/2013 a 16/09/2026</td></tr>
+          <tr><th>Nº de observações</th><td>3.430 dias úteis: 2.573 no treino (25/07/2013 a 05/06/2023) e 857 no teste (06/06/2023 a 16/09/2026)</td></tr>
+          <tr><th>Horizonte de previsão definido</th><td>Bloco de teste de 25% da série (857 pregões), percorrido em walk-forward com reajuste a cada 50 pregões. Os modelos estatísticos (SARIMAX e Holt-Winters) preveem de 1 a 50 pregões à frente a partir de cada origem. Random Forest e XGBoost preveem 1 pregão à frente, porque suas features usam o preço da véspera (ver página 6).</td></tr>
+          <tr><th>Justificativa da escolha da base</th><td>É uma série financeira longa (13 anos) e de comportamento oposto ao de uma série climática: não estacionária, dominada por tendência e choques, praticamente sem sazonalidade. Ela testa como os quatro modelos se comportam quando o padrão sazonal é fraco e o nível muda de regime. As ações do mesmo setor (Tyson Foods, Cal-Maine) e o ETF de consumo básico (XLP) são candidatas naturais a variáveis externas, e a PPC tem relevância direta para o grupo J&amp;F.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Gráfico da série-alvo</h2>
+        <figure class="chart">
+          <img src="img/serie_alvo.png" alt="Preço de fechamento ajustado da PPC de 2013 a 2026, com ciclos entre 10 e 30 dólares até 2023, alta para 52 dólares em 2025 e queda para perto de 30 em 2026">
+          <figcaption>Preço de fechamento ajustado (US$), com média móvel de 76 pregões. A linha tracejada marca o início do bloco de teste (06/06/2023).</figcaption>
+        </figure>
+        <p>O preço médio no período é de <strong>US$ 22,86</strong> (mínimo de US$ 8,91 em 2013 e máximo de US$ 52,18 em 23/04/2025). Há dois regimes bem diferentes:</p>
+        <ul>
+          <li><strong>2013 a 2023: ciclos sem direção.</strong> Depois da alta de 2013–2014 (de ~US$ 10 para ~US$ 20), o preço oscila entre US$ 12 e US$ 32 em ciclos de 1 a 3 anos, típicos do ciclo de margem da indústria de frango. Picos em 2017 (US$ 32) e no fim de 2019 (US$ 28), e quedas fortes em 2018 e em março de 2020 (pandemia). As médias anuais ficam entre US$ 16,5 e US$ 23.</li>
+          <li><strong>2024 a 2026: mudança de regime.</strong> A partir do início de 2024 o preço dobra (média anual de US$ 20,4 em 2023 para US$ 33,3 em 2024 e US$ 42,9 em 2025), chega ao máximo histórico em abril de 2025 e devolve boa parte da alta em 2026 (US$ 26,5 em junho). Quase todo esse movimento cai no bloco de teste, e 489 dos 857 pregões de teste ficam <strong>acima do maior preço visto no treino</strong> (US$ 31,98).</li>
+        </ul>
+        <p>Não há ciclo anual nem semanal visível. A volatilidade também muda: o resíduo do STL tem desvio-padrão abaixo de US$ 1 em 2015–2016 e acima de US$ 3 em 2025–2026 (página 4).</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 2 — VARIÁVEIS EXTERNAS ============ -->
+    <section class="page" id="p2">
+      <h1>Variáveis externas</h1>
+      <div class="eyebrow">Dicionário de variáveis e disponibilidade real na data de previsão</div>
+
+      <div class="card">
+        <h2>Dicionário de variáveis</h2>
+        <table>
+          <tr><th>Variável</th><th>Descrição</th><th>Unidade</th><th>Fonte</th></tr>
+          <tr><td><code>TSN_Close</code></td><td>Fechamento da Tyson Foods, maior concorrente da PPC em frango</td><td>US$</td><td>Yahoo Finance</td></tr>
+          <tr><td><code>XLP_Close</code></td><td>Fechamento do ETF Consumer Staples Select Sector SPDR (setor de consumo básico dos EUA)</td><td>US$</td><td>Yahoo Finance</td></tr>
+          <tr><td><code>CALM_Close</code></td><td>Fechamento da Cal-Maine Foods, maior produtora de ovos dos EUA (mesma cadeia de ração e proteína avícola)</td><td>US$</td><td>Yahoo Finance</td></tr>
+          <tr><td><code>Volume</code> <span class="flag leak">excluída</span></td><td>Volume negociado da PPC no dia</td><td>ações</td><td>Yahoo Finance</td></tr>
+          <tr><td><code>USD_MXN</code> <span class="flag leak">excluída</span></td><td>Taxa de câmbio dólar/peso mexicano (a PPC tem operação no México)</td><td>MXN por US$</td><td>Yahoo Finance</td></tr>
+          <tr><td><code>Open</code>, <code>High</code>, <code>Low</code> <span class="flag leak">excluídas</span></td><td>Abertura, máxima e mínima da própria PPC no dia</td><td>US$</td><td>Yahoo Finance</td></tr>
+        </table>
+        <p>Correlação com <code>Close</code> no treino. No nível: TSN <strong>0,70</strong>, XLP <strong>0,49</strong> e CALM <strong>0,34</strong>. Na variação diária (1ª diferença), que é a medida mais honesta para séries com tendência: TSN <strong>0,51</strong>, XLP <strong>0,40</strong> e CALM <strong>0,24</strong>. Volume (−0,07) e USD/MXN (−0,08) praticamente não se correlacionam com a variação diária do preço e foram descartados. Open, High e Low são do próprio dia e quase idênticos ao fechamento, então também ficaram de fora.</p>
+      </div>
+
+      <div class="card">
+        <h2>Disponibilidade na data de origem da previsão</h2>
+        <table>
+          <tr><th>Variável</th><th>Disponível no futuro?</th><th>Tratamento adotado</th></tr>
+          <tr>
+            <td><code>TSN_Close</code>, <code>XLP_Close</code>, <code>CALM_Close</code> no <strong>SARIMAX</strong></td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td>O notebook usa o <strong>valor real do próprio dia previsto</strong>, inclusive para os 50 pregões à frente de cada origem (<code>forecast(exog=test[EXOGS])</code>). Esses preços não são conhecidos na origem da previsão. O efeito do vazamento foi medido com o mesmo ARIMA(2,1,2) sem exógenas (páginas 7 e 8).</td>
+          </tr>
+          <tr>
+            <td><code>TSN_Close</code>, <code>XLP_Close</code>, <code>CALM_Close</code> no <strong>Random Forest e XGBoost</strong></td>
+            <td><span class="flag ok">disponível (defasada)</span></td>
+            <td>Toda a tabela é deslocada 1 dia (<code>shift(1)</code>) antes de criar lags, diferenças e janelas. A linha do dia <em>t</em> só usa fechamentos até <em>t−1</em>.</td>
+          </tr>
+          <tr>
+            <td>Holt-Winters</td>
+            <td>—</td>
+            <td>Univariado: não usa variáveis externas.</td>
+          </tr>
+        </table>
+        <p>Como as quatro séries são preços negociados ao mesmo tempo, o fechamento de TSN, XLP e CALM no dia <em>t</em> só é conhecido no fim do pregão <em>t</em>, junto com o próprio <code>Close</code> que se quer prever. No SARIMAX, isso significa usar o movimento do setor no dia para explicar o movimento da PPC no mesmo dia. Isso explica bem, mas não é previsão. Uma versão operacional teria duas opções: usar as externas defasadas (no máximo até a origem do bloco) ou usar previsões delas feitas na origem.</p>
+      </div>
+
+      <div class="card">
+        <h2>Gráficos das variáveis externas</h2>
+        <figure class="chart">
+          <img src="img/externas.png" alt="Fechamentos de Tyson Foods, XLP e Cal-Maine de 2013 a 2026">
+          <figcaption>TSN, XLP e CALM (US$). A linha tracejada marca o início do teste. CALM tem a mesma alta forte em 2024–2025 que a PPC; o XLP sobe de forma suave e contínua.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 3 — LIMPEZA E EXPLORAÇÃO ============ -->
+    <section class="page" id="p3">
+      <h1>Limpeza e exploração</h1>
+      <div class="eyebrow">Qualidade dos dados antes da modelagem</div>
+
+      <div class="card">
+        <h2>Diagnóstico</h2>
+        <table>
+          <tr><th>Valores ausentes</th><td>Nenhum NaN em nenhuma das 10 colunas.</td></tr>
+          <tr><th>Duplicidades</th><td>Nenhuma data ou linha duplicada.</td></tr>
+          <tr><th>Irregularidades temporais</th><td>A série tem exatamente os 3.430 dias úteis (seg–sex) do período, sem lacunas. Mas a bolsa americana fecha em feriados: 124 dessas linhas (Natal, Ano-Novo, Ação de Graças etc.) não existem no histórico original da PPC. Nelas, todos os preços repetem o dia anterior e o <code>Volume</code> é 0, ou seja, foram preenchidas com o último valor (<em>forward-fill</em>) ao alinhar as séries num calendário de dias úteis.</td></tr>
+          <tr><th>Valores atípicos (outliers)</th><td>Método: regra do IQR na variação diária do preço (no nível, o IQR só marcaria a alta de 2024–2025 como atípica, o que é uma mudança de regime, não um erro).<br>
+            • <code>Close</code>: 212 variações diárias fora do IQR (6%), o esperado para retornos de ação, que têm caudas pesadas.<br>
+            • Maiores quedas: −US$ 7,49 em 01/05/2025, −US$ 3,66 em 16/10/2014 e −US$ 3,63 em 03/10/2024. Maior alta: +US$ 3,95 em 13/08/2021.<br>
+            • Todas são movimentos reais de mercado, confirmados no histórico original, e foram mantidas.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Decisões de limpeza e transformação</h2>
+        <p><strong>1. Corte em 2013.</strong> Os notebooks filtram a partir de 01/01/2013. Na prática, a base combinada começa em 25/07/2013, que é a primeira data com todas as externas disponíveis.</p>
+        <p><strong>2. Exclusão de colunas.</strong> <code>Open</code>, <code>High</code> e <code>Low</code> saíram porque são do próprio dia (vazamento direto). <code>Volume</code> e <code>USD_MXN</code> saíram porque têm correlação desprezível com a variação do preço. O <code>Volume</code> ainda tem os 124 zeros artificiais dos feriados.</p>
+        <p><strong>3. Feriados mantidos com forward-fill.</strong> As 124 linhas preenchidas ficaram na série (3,6% dos dias). Elas mantêm a frequência regular que SARIMAX e Holt-Winters exigem, mas criam dias com variação exatamente zero e 124 "previsões" fáceis no teste. Removê-las e usar um calendário de pregões seria mais fiel.</p>
+        <p><strong>4. Sem transformação do alvo para os modelos.</strong> O preço entra em nível em todos os modelos, sem log. No SARIMAX, as quatro colunas são padronizadas (<code>StandardScaler</code> ajustado só no treino) e a previsão volta para US$ antes das métricas. A diferenciação fica a cargo do próprio modelo (d = 1 no ARIMA). Como a volatilidade cresce com o nível do preço (página 4), um log-preço seria uma alternativa a testar.</p>
+        <p><strong>5. Dividendos.</strong> A série já vem ajustada, então os dividendos especiais de 2015, 2016 e 2025 não aparecem como quedas artificiais.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 4 — STL ============ -->
+    <section class="page" id="p4">
+      <h1>Decomposição STL</h1>
+      <div class="eyebrow">Tendência, sazonalidade e resíduo</div>
+
+      <div class="card">
+        <h2>Escolha do período sazonal</h2>
+        <p>Pregões diários não têm um período sazonal óbvio. O notebook 1 testou m de 2 a 100 com STL robusto na <strong>1ª diferença padronizada</strong> do preço (arquivo <code>data/base_escalonada.csv</code>) e escolheu o m de maior força sazonal: <strong>m = 76</strong>, com F<sub>S</sub> = 0,195.</p>
+        <figure class="chart">
+          <img src="img/stl_varredura_m.png" alt="Força da sazonalidade por período m entre 2 e 100, oscilando entre 0,01 e 0,2, com máximo em m = 76">
+          <figcaption>F<sub>S</sub> na 1ª diferença padronizada para m de 2 a 100. Máximo em m = 76 (0,195), seguido de m = 27 (0,182) e m = 88 (0,182).</figcaption>
+        </figure>
+        <p>A curva não tem um pico claro: vários períodos sem relação entre si (27, 56, 60, 76, 88) ficam entre 0,17 e 0,20, e a mediana é 0,12. O ciclo semanal (m = 5) dá só 0,06. Um padrão sazonal real apareceria como um pico isolado, e seus múltiplos também se destacariam. O m = 76 (cerca de 3,5 meses de pregões) é, portanto, o máximo de uma curva ruidosa, e não um ciclo econômico identificado. Mesmo assim, ele foi mantido em todos os modelos para que os quatro usem o mesmo período.</p>
+      </div>
+
+      <div class="card">
+        <figure class="chart">
+          <img src="img/stl.png" alt="Decomposição STL do preço da PPC em observado, tendência, sazonal e resíduo, com tendência acompanhando os ciclos e sazonal e resíduo crescendo depois de 2024">
+          <figcaption>STL do preço em nível com <code>period = 76</code> e <code>robust = True</code>.</figcaption>
+        </figure>
+      </div>
+
+      <h3>Tendência</h3>
+      <table>
+        <tr><th>Período</th><th>Comportamento</th><th>Nível da tendência</th></tr>
+        <tr><td>2013 – 2014</td><td>Alta forte saindo do mínimo (11/11/2013)</td><td>10,1 → 20,6 US$</td></tr>
+        <tr><td>2015 – 2023</td><td>Ciclos de 1 a 3 anos sem direção: picos em 2017 e 2019, vales em 2018 e 2020</td><td>entre ~14 e ~26 US$; 23,3 US$ no fim de 2023</td></tr>
+        <tr><td>2024 – mai/2025</td><td>Alta contínua até o máximo da tendência (29/05/2025)</td><td>23,3 → 44,4 US$</td></tr>
+        <tr><td>jun/2025 – set/2026</td><td>Queda contínua</td><td>44,4 → 26,3 US$</td></tr>
+      </table>
+      <p>A tendência concentra quase toda a variação da série: os ciclos de vários anos e a mudança de regime de 2024 aparecem nela, e não na sazonalidade. Ela muda de direção várias vezes, o que favorece modelos que se adaptam ao nível recente (passeio aleatório, α alto no Holt-Winters) em vez de extrapolar uma inclinação fixa.</p>
+
+      <h3>Sazonalidade</h3>
+      <p>A componente sazonal com m = 76 não tem um formato que se repita: é uma oscilação irregular de alta frequência, com desvio-padrão de US$ 0,86, que cresce com o nível do preço (0,3–0,5 US$ até 2018, 1,6–2,0 US$ em 2025–2026). Ela está absorvendo parte do ruído e dos choques de curto prazo, e não um ciclo recorrente.</p>
+
+      <h3>Resíduo</h3>
+      <p>O resíduo é estacionário (ADF p ≈ 2e-14), mas não é ruído branco: tem blocos de semanas com o mesmo sinal, nos momentos em que a tendência suavizada não acompanha um movimento brusco (fim de 2017, mar/2020, 2022 e 2025–2026). Ele também é heterocedástico: o desvio-padrão anual vai de 0,6 US$ (2016) a 3,4 US$ (2026). 100 pontos (2,9%) passam de 3 desvios-padrão.</p>
+
+      <h3>Força da sazonalidade / tendência</h3>
+      <p>F<sub>T</sub> = max(0, 1 − Var(R<sub>t</sub>) / Var(T<sub>t</sub> + R<sub>t</sub>)) e F<sub>S</sub> = max(0, 1 − Var(R<sub>t</sub>) / Var(S<sub>t</sub> + R<sub>t</sub>)).</p>
+      <table>
+        <tr><th>Métrica</th><th>Série</th><th>Valor</th><th>Interpretação</th></tr>
+        <tr><td>Força da tendência</td><td>Preço em nível</td><td>0,96</td><td>Muito forte: a série é praticamente tendência + ruído.</td></tr>
+        <tr><td>Força da sazonalidade</td><td>Preço em nível</td><td>0,00</td><td>Nula: a componente sazonal varia menos que o resíduo.</td></tr>
+        <tr><td>Força da sazonalidade</td><td>1ª diferença padronizada</td><td>0,195</td><td>Fraca: mesmo no melhor m, a sazonalidade explica menos de 20% da variação diária.</td></tr>
+      </table>
+
+      <div class="card">
+        <h2>Estacionariedade e ordem de diferenciação</h2>
+        <table>
+          <tr><th>Série</th><th>ADF (p-valor)</th><th>KPSS (estatística / p-valor)</th><th>Conclusão</th></tr>
+          <tr><td>Preço em nível</td><td>0,33: não rejeita raiz unitária</td><td>4,82 / &lt; 0,01: rejeita estacionariedade</td><td>Não estacionária (os dois testes concordam)</td></tr>
+          <tr><td>1ª diferença</td><td>≈ 0: rejeita raiz unitária</td><td>0,05 / &gt; 0,10: não rejeita estacionariedade</td><td>Estacionária: d = 1</td></tr>
+        </table>
+        <figure class="chart">
+          <img src="img/acf_pacf.png" alt="ACF e PACF da primeira diferença do preço, todos os lags dentro da banda de confiança">
+          <figcaption>ACF e PACF da 1ª diferença até o lag 40 (eixo vertical ampliado para ±0,15).</figcaption>
+        </figure>
+        <p>Depois de diferenciada, a série é quase ruído branco: a autocorrelação no lag 1 é −0,017, e nenhum dos 10 primeiros lags passa de 0,02 em módulo. É o comportamento esperado de um preço de ação (próximo de um passeio aleatório). A previsão ingênua (amanhã = hoje) é, portanto, uma referência muito difícil de bater, e a força dos modelos tem de vir das variáveis externas, não da dinâmica do próprio preço.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 5 — FEATURE ENGINEERING ============ -->
+    <section class="page" id="p5">
+      <h1>Feature engineering</h1>
+      <div class="eyebrow">Construção das features usadas nos modelos baseados em tabela</div>
+
+      <div class="card">
+        <h2>Features construídas</h2>
+        <p>As features são calculadas sobre <code>historico = dados.shift(1)</code>, ou seja, a linha do dia <em>t</em> só enxerga fechamentos até <em>t−1</em>. Tudo é feito para as quatro séries: <code>Close</code>, <code>TSN_Close</code>, <code>XLP_Close</code> e <code>CALM_Close</code>. São <strong>85 features</strong> no total.</p>
+        <table>
+          <tr><th>Tipo</th><th>Descrição</th><th>Qtd.</th><th>Usada em quais modelos</th></tr>
+          <tr><td>Lags da variável-alvo</td><td><code>Close</code> de 1, 2, 3, 7, 14, 30, 76 e 152 pregões atrás</td><td>8</td><td>RF, XGBoost</td></tr>
+          <tr><td>Lags de variáveis externas</td><td>Os mesmos 8 lags para TSN, XLP e CALM</td><td>24</td><td>RF, XGBoost</td></tr>
+          <tr><td>Estatísticas de janela móvel</td><td>Média e desvio-padrão em janelas de 3, 7, 14, 30 e 76 pregões, para as 4 séries</td><td>40</td><td>RF, XGBoost</td></tr>
+          <tr><td>Diferenças</td><td>Variação de 1 pregão e variação "sazonal" (76 pregões) para as 4 séries; variações de 3, 7 e 30 pregões do <code>Close</code></td><td>11</td><td>RF, XGBoost</td></tr>
+          <tr><td>Outras</td><td>Média e desvio-padrão de 76 pregões do <code>Close</code> (repetem <code>Close_media_76</code> e <code>Close_desvio_76</code>)</td><td>2</td><td>RF, XGBoost</td></tr>
+          <tr><td>Features de calendário / encoding cíclico</td><td>Não foram criadas. Não há ciclo anual nem semanal na série (página 4), e o período de 76 pregões já entra pelos lags e janelas.</td><td>0</td><td>—</td></tr>
+        </table>
+        <p>O lag 1 do <code>Close</code> é o fechamento da véspera. Ele é legítimo (é conhecido na origem), mas faz com que as árvores prevejam sempre <strong>1 pregão à frente</strong>, mesmo dentro de um bloco de 50 pregões do walk-forward (página 6). Uma checagem no script do relatório altera os valores de um dia <em>t</em> e confirma que nenhuma feature da linha <em>t</em> muda, só as das linhas seguintes.</p>
+      </div>
+
+      <div class="card">
+        <h2>Tratamento de NA gerado pelos lags/janelas</h2>
+        <p>O maior histórico exigido é o lag de 152 pregões (2 × 76). As 152 primeiras linhas ficam com NA e são descartadas (<code>dropna</code>) como período de warm-up. A tabela começa em 24/02/2014 e tem 3.278 linhas: 2.459 de treino (até 27/07/2023) e 819 de teste (28/07/2023 a 16/09/2026). Como o corte de 25% é feito depois do <code>dropna</code>, o teste das árvores começa 38 pregões depois do teste de SARIMAX e Holt-Winters (06/06/2023). Para comparar todos na mesma janela, a página 8 também mostra o MAE nos 819 pregões em comum.</p>
+      </div>
+
+      <p>Random Forest e XGBoost usam exatamente a mesma tabela de 85 features. O SARIMAX recebe só os três fechamentos externos como exógenas (do próprio dia, ver página 2), porque os termos AR/MA fazem o papel dos lags do alvo. O Holt-Winters é a referência univariada e não usa features.</p>
+    </section>
+
+    <!-- ============ PÁGINA 6 — WALK-FORWARD ============ -->
+    <section class="page" id="p6">
+      <h1>Protocolo walk-forward</h1>
+      <div class="eyebrow">Como a validação fora da amostra foi montada para esta base</div>
+
+      <table>
+        <tr><th>Janela inicial de treino</th><td>Expansiva. SARIMAX e Holt-Winters: 25/07/2013 a 05/06/2023 (2.573 pregões). RF e XGBoost: 24/02/2014 a 27/07/2023 (2.459 linhas, depois do warm-up de 152 pregões).</td></tr>
+        <tr><th>Horizonte de previsão</th><td>SARIMAX e Holt-Winters: de 1 a 50 pregões à frente da origem (o bloco inteiro é previsto de uma vez). RF e XGBoost: 1 pregão à frente, porque as features de cada linha usam os valores reais até a véspera.</td></tr>
+        <tr><th>Passo de avanço</th><td>50 pregões. A cada bloco, o modelo é reajustado do zero com todo o histórico anterior, incluindo os valores reais do bloco que acabou de passar.</td></tr>
+        <tr><th>Nº de origens de previsão (folds)</th><td>18 origens para SARIMAX e Holt-Winters (17 blocos de 50 e um de 7). 17 origens para RF e XGBoost (16 blocos de 50 e um de 19).</td></tr>
+        <tr><th>Datas de origem</th><td>Um a cada 50 pregões a partir do início do teste (06/06/2023 e 28/07/2023, respectivamente). A regra está em <code>walk_forward_predict</code> (<code>model_utils.py</code>) e nos laços dos notebooks 1 e 2.</td></tr>
+        <tr><th>Conjunto de teste final</th><td>Últimos 25% da série: 06/06/2023 a 16/09/2026 (857 pregões), ou 28/07/2023 a 16/09/2026 (819) para as árvores</td></tr>
+      </table>
+
+      <figure class="chart">
+        <img src="img/walk_forward.png" alt="Preço da PPC com o treino em cinza, o teste em verde e linhas verticais nas 18 origens de reajuste">
+        <figcaption>Treino inicial, bloco de teste e as 18 origens de reajuste (a cada 50 pregões).</figcaption>
+      </figure>
+
+      <div class="card">
+        <h2>Justificativa e ressalvas</h2>
+        <p><strong>Reajuste a cada 50 pregões.</strong> O reajuste diário do SARIMAX e das florestas (768 árvores) seria caro, então o modelo é reestimado 18 vezes ao longo dos três anos de teste.</p>
+        <p><strong>Os 4 modelos <em>não</em> usam exatamente o mesmo protocolo.</strong> As origens e o passo são os mesmos, mas o horizonte efetivo não é:</p>
+        <ul>
+          <li>SARIMAX e Holt-Winters chamam <code>forecast(50)</code> na origem e não veem os preços reais dentro do bloco. O erro deles mistura previsões de 1 a 50 pregões.</li>
+          <li>RF e XGBoost recebem, em cada linha do bloco, features com o preço real da véspera. Na prática, preveem 1 pregão à frente o tempo todo.</li>
+          <li>O teste das árvores começa 38 pregões depois e tem 819 pontos, contra 857.</li>
+        </ul>
+        <p>Por isso, cada grupo é comparado com a referência ingênua do <em>seu</em> protocolo: a <strong>naive por bloco</strong> (repete o último preço conhecido na origem pelos 50 pregões) para os estatísticos, e a <strong>persistência de 1 passo</strong> (amanhã = hoje) para as árvores. Os baselines dos notebooks (<code>evaluate_baselines</code>) repetem o último preço do treino pelos 857 pregões, sem walk-forward, e por isso dão MAE de ~US$ 15. Eles não servem como régua.</p>
+        <p><strong>Seleção de hiperparâmetros.</strong> SARIMAX (auto_arima/AIC) e Holt-Winters (máxima verossimilhança) foram ajustados só no treino. RF e XGBoost foram otimizados com Optuna usando <code>TimeSeriesSplit</code> de 5 dobras dentro do treino. Nenhum modelo usou o bloco de teste para escolher hiperparâmetros.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 7 — MODELOS E HIPERPARÂMETROS ============ -->
+    <section class="page" id="p7">
+      <h1>Modelos e hiperparâmetros</h1>
+      <div class="eyebrow">Espaço de busca, procedimento e configuração final</div>
+
+      <div class="card">
+        <h2>SARIMAX</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td><code>auto_arima</code> (pmdarima) em busca stepwise: p, q de 0 a 3 (a partir de (2,1,2)); d escolhido pelo próprio auto_arima (teste KPSS → d = 1); sazonal m = 76 com P, Q ∈ {0, 1} e D = 0; com e sem intercepto. 28 modelos avaliados.</td></tr>
+          <tr><th>Critério</th><td>AIC no treino (2.573 pregões, série padronizada)</td></tr>
+          <tr><th>Variáveis externas incluídas</th><td><code>TSN_Close</code>, <code>XLP_Close</code> e <code>CALM_Close</code> do próprio dia, padronizadas. <span class="flag leak">vazamento</span> No <code>auto_arima</code>, as exógenas foram passadas como <code>exogenous=</code>, mas o pmdarima 2.x espera <code>X=</code>. O AIC da busca (−4.672) é muito maior que o do mesmo modelo ajustado com exógenas (−5.579), sinal de que elas não entraram na escolha da ordem. Elas só entram no ajuste e no walk-forward com statsmodels.</td></tr>
+          <tr><th>Configuração final</th><td><strong>SARIMAX(2,1,2)(0,0,0)[76]</strong> sem intercepto (AIC = −4.672,5 na busca). Termos sazonais com m = 76 pioraram o AIC em todas as combinações (−4.670,6 com P = 1 ou Q = 1).</td></tr>
+        </table>
+        <p>Com as exógenas, o modelo ajustado no treino tem AIC = −5.579. A melhora em relação ao AIC da busca (−4.672,5) vem das exógenas (página 10). Os coeficientes AR e MA não são significativos (p entre 0,47 e 0,74) e quase se cancelam (ar.L1 = −0,32 e ma.L1 = +0,31; ar.L2 = +0,64 e ma.L2 = −0,64). Ou seja, o modelo é, na prática, um passeio aleatório com regressão nas exógenas do dia. Os resíduos do ajuste no treino passam no Ljung-Box (p = 0,99 no lag 10 e 0,80 no lag 20).</p>
+        <p><strong>Teste de sensibilidade: o mesmo ARIMA(2,1,2) sem exógenas,</strong> no mesmo walk-forward, teve MAE de <strong>US$ 2,316</strong>, praticamente igual à naive por bloco (US$ 2,314). Toda a vantagem do SARIMAX vem do preço das exógenas no dia previsto.</p>
+      </div>
+
+      <div class="card">
+        <h2>Holt-Winters (referência univariada)</h2>
+        <table>
+          <tr><th>Tendência</th><td>Aditiva (não amortecida)</td></tr>
+          <tr><th>Sazonalidade</th><td>Testadas aditiva e multiplicativa (com deslocamento para garantir valores positivos, que não foi necessário). Aditiva: AIC = −4.085,4 e MAE de teste de US$ 2,376. Multiplicativa: AIC = −3.987,3 e MAE de US$ 2,514. <strong>Escolhida: aditiva.</strong></td></tr>
+          <tr><th>Período sazonal</th><td>76 pregões, o mesmo do SARIMAX</td></tr>
+          <tr><th>Parâmetros de suavização</th><td>Estimados por máxima verossimilhança, com inicialização heurística. Aditivo: α = 0,958, β = 0,0006, γ = 0,042. Multiplicativo: α = 0,945, β = 0,0005, γ = 0,055.</td></tr>
+        </table>
+        <p>α ≈ 0,96 significa que o nível é praticamente o último preço observado: o Holt-Winters virou um passeio aleatório com um pequeno ajuste sazonal e tendência quase nula (β ≈ 0). É coerente com a página 4 (sazonalidade fraca, diferenças sem autocorrelação). O componente sazonal de 76 pregões acrescenta oscilações que não se repetem fora da amostra, e por isso o MAE fica <em>pior</em> que o da naive por bloco.</p>
+        <figure class="chart">
+          <img src="img/componentes_hw.png" alt="Componentes do Holt-Winters aditivo no treino: nível igual ao preço, tendência perto de zero e sazonal irregular">
+          <figcaption>Componentes do Holt-Winters aditivo ajustado no treino (até 05/06/2023).</figcaption>
+        </figure>
+      </div>
+
+      <div class="card">
+        <h2>Random Forest</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td>n_estimators ∈ [100, 800]; max_depth ∈ [3, 30]; min_samples_split ∈ [2, 20]; min_samples_leaf ∈ [1, 10]; max_features ∈ {sqrt, log2, 1,0}; bootstrap ∈ {True, False}</td></tr>
+          <tr><th>Método de otimização</th><td>Optuna (TPE, semente 42) com 50 tentativas, minimizando o MAE médio de um <code>TimeSeriesSplit</code> de 5 dobras dentro do treino. Melhor MAE de validação cruzada: US$ 0,553.</td></tr>
+          <tr><th>Configuração final</th><td><strong>n_estimators = 768, max_depth = 26, min_samples_split = 20, min_samples_leaf = 8, max_features = 1,0, bootstrap = True</strong></td></tr>
+        </table>
+        <p>O hiperparâmetro que mais pesou foi <code>max_features</code>: com 1,0 (todas as features em cada divisão), o MAE de CV ficou entre 0,55 e 0,59; com <code>sqrt</code> ou <code>log2</code>, entre 0,83 e 1,06. Com sorteio de poucas colunas, muitas árvores não recebem <code>Close_lag_1</code>, que carrega quase toda a informação. Folhas grandes (8–10) e divisões exigentes (min_samples_split alto) foram as melhores, porque suavizam o ruído diário.</p>
+      </div>
+
+      <div class="card">
+        <h2>Modelo de especialização — XGBoost Regressor</h2>
+        <table>
+          <tr><th>Principais hiperparâmetros</th><td>n_estimators e learning_rate (número de árvores e tamanho do passo), max_depth, min_child_weight, subsample e colsample_bytree (amostragem de linhas e colunas por árvore), reg_alpha e reg_lambda (regularização L1 e L2)</td></tr>
+          <tr><th>Intervalos testados</th><td>n_estimators ∈ [100, 800]; max_depth ∈ [3, 15]; learning_rate ∈ [0,01, 0,3] (log); min_child_weight ∈ [1, 10]; subsample ∈ [0,6, 1,0]; colsample_bytree ∈ [0,6, 1,0]; reg_alpha e reg_lambda ∈ [1e-8, 10] (log)</td></tr>
+          <tr><th>Método de busca</th><td>Optuna (TPE, semente 42) com 50 tentativas e o mesmo <code>TimeSeriesSplit</code> de 5 dobras. Melhor MAE de validação cruzada: US$ 0,632.</td></tr>
+          <tr><th>Configuração final</th><td><strong>n_estimators = 307, max_depth = 15, learning_rate = 0,0156, min_child_weight = 10, subsample = 0,60, colsample_bytree = 0,997, reg_alpha ≈ 3e-6, reg_lambda ≈ 1e-4</strong></td></tr>
+        </table>
+        <p>A combinação de taxa de aprendizado baixa e só 307 árvores (0,0156 × 307 ≈ 4,8 "passos") deixa o modelo pouco ajustado no sentido do boosting. min_child_weight no máximo (10) e subsample baixo (0,6) também regularizam. Assim como no RF, colsample perto de 1 garante que <code>Close_lag_1</code> esteja disponível em todas as árvores.</p>
+        <p style="font-size:.85rem;color:var(--muted)">Observação: a célula 10 do notebook 4 mostra outros parâmetros (n_estimators = 134, max_depth = 3) e MAE 0,947. É uma saída antiga de uma execução anterior. Os valores válidos são os da célula 6, que estão salvos em <code>all_modelos.json</code>. O mesmo vale para a célula 18 do notebook 2 (α = 0,0099), que não bate com os parâmetros salvos (α = 0,945).</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 8 — RESULTADOS MAE ============ -->
+    <section class="page" id="p8">
+      <h1>Resultados comparativos (MAE)</h1>
+      <div class="eyebrow">Erro fora da amostra do protocolo walk-forward, apenas para esta base</div>
+
+      <p>Ranking do notebook 5 (<code>5 - RankFinal.ipynb</code>), feito pela média das posições em MAE, RMSE, MAPE, sMAPE e WAPE (as cinco métricas dão a mesma ordem):</p>
+
+      <table>
+        <tr><th>Modelo</th><th>Horizonte</th><th>MAE (US$)</th><th>Ranking</th><th>RMSE</th><th>MAPE (%)</th><th>MAE na janela comum*</th></tr>
+        <tr><td><strong>Random Forest</strong></td><td>1 pregão</td><td><strong>1,304</strong></td><td>1º</td><td>2,070</td><td>3,44</td><td>1,304</td></tr>
+        <tr><td>XGBoost (especialização)</td><td>1 pregão</td><td>1,347</td><td>2º</td><td>2,094</td><td>3,61</td><td>1,350</td></tr>
+        <tr><td>SARIMAX</td><td>1–50 pregões</td><td>1,836</td><td>3º</td><td>2,419</td><td>5,37</td><td>1,880</td></tr>
+        <tr><td>Holt-Winters aditivo</td><td>1–50 pregões</td><td>2,376</td><td>4º</td><td>3,076</td><td>7,09</td><td>2,439</td></tr>
+        <tr><td>Holt-Winters multiplicativo</td><td>1–50 pregões</td><td>2,514</td><td>5º</td><td>3,385</td><td>7,42</td><td>2,586</td></tr>
+        <tr><td colspan="7" style="background:var(--accent-soft)"><strong>Referências no mesmo protocolo</strong> (calculadas para este relatório)</td></tr>
+        <tr><td><em>Persistência 1 passo (amanhã = hoje)</em></td><td>1 pregão</td><td><em>0,467</em></td><td>—</td><td><em>0,700</em></td><td><em>1,34</em></td><td><em>0,477</em></td></tr>
+        <tr><td><em>Naive por bloco (último preço na origem)</em></td><td>1–50 pregões</td><td><em>2,314</em></td><td>—</td><td><em>2,954</em></td><td><em>6,90</em></td><td><em>2,374</em></td></tr>
+        <tr><td><em>ARIMA(2,1,2) sem exógenas</em></td><td>1–50 pregões</td><td><em>2,316</em></td><td>—</td><td><em>2,953</em></td><td><em>6,91</em></td><td><em>2,376</em></td></tr>
+      </table>
+      <p style="font-size:.85rem;color:var(--muted)">* Janela comum: 28/07/2023 a 16/09/2026 (819 pregões), onde todos os modelos têm previsão. Resultados consolidados em <code>pilgrims/all_modelos.json</code>. Previsões dia a dia em <code>pilgrims/previsoes_teste.csv</code>, geradas por <code>pilgrims/gerar_relatorio.py</code>, que reproduz os notebooks com os mesmos hiperparâmetros (o XGBoost reexecutado dá 1,350 contra 1,347 no notebook, uma diferença de não-determinismo).</p>
+
+      <figure class="chart">
+        <img src="img/previsoes_teste.png" alt="Preço real no teste com as previsões dos modelos estatísticos em degraus de 50 pregões no painel de cima e as previsões das árvores coladas no preço, mas presas em patamares durante a alta de 2024, no painel de baixo">
+        <figcaption>Previsões walk-forward contra o valor real. Em cima, os modelos estatísticos, que preveem o bloco de 50 pregões inteiro na origem (por isso os degraus). Embaixo, as árvores, que preveem 1 pregão à frente.</figcaption>
+      </figure>
+
+      <figure class="chart">
+        <img src="img/mae_modelos.png" alt="Barras de MAE: Random Forest 1,30, XGBoost 1,35, SARIMAX 1,84, Holt-Winters 2,38 e 2,51; linha da persistência em 0,47 e da naive por bloco em 2,31">
+        <figcaption>MAE de teste por modelo. A linha pontilhada é a persistência de 1 passo (régua das árvores); a tracejada é a naive por bloco (régua dos estatísticos).</figcaption>
+      </figure>
+
+      <div class="card">
+        <h2>Discussão</h2>
+        <p><strong>O ranking do notebook compara horizontes diferentes.</strong> Random Forest e XGBoost aparecem em 1º e 2º, mas preveem 1 pregão à frente, enquanto SARIMAX e Holt-Winters preveem até 50. Com o mesmo horizonte, a ordem não se sustenta: comparados com suas réguas, os modelos ficam assim.</p>
+        <ul>
+          <li><strong>Árvores: 2,8 vezes piores que a persistência.</strong> Repetir o preço de ontem dá MAE de US$ 0,47; o RF erra US$ 1,30 e o XGBoost US$ 1,35. A causa é a mudança de regime: 489 dos 819 pregões de teste ficam acima do maior preço do treino (US$ 31,98), e árvores não extrapolam. Cada folha devolve uma média de preços já vistos, então durante a alta de 2024–2025 a previsão fica presa num patamar até o próximo reajuste incorporar preços mais altos (os "degraus" do painel de baixo). O erro mostra isso: RF com US$ 0,27 em 2023 (dentro da faixa do treino), US$ 1,89 em 2024 e US$ 1,50 em 2025, e de volta a US$ 0,83 em 2026, quando o preço cai para a faixa conhecida.</li>
+          <li><strong>SARIMAX: único a bater sua régua, mas por vazamento.</strong> O MAE de US$ 1,836 é 21% menor que o da naive por bloco (US$ 2,314). Sem as exógenas, o mesmo ARIMA dá US$ 2,316, exatamente a naive. Como as exógenas são os preços reais de TSN, XLP e CALM no dia previsto (até 50 pregões à frente), o ganho mede o quanto a PPC acompanha o setor no mesmo dia, e não uma capacidade de previsão.</li>
+          <li><strong>Holt-Winters: pior que a naive.</strong> Com α ≈ 0,96 ele é quase um passeio aleatório, e a sazonalidade de 76 pregões só acrescenta oscilação sem sinal: US$ 2,376 (aditivo) e US$ 2,514 (multiplicativo), contra US$ 2,314 da naive.</li>
+        </ul>
+        <p><strong>Relação com as características da série.</strong> Com F<sub>T</sub> = 0,96, F<sub>S</sub> ≈ 0 e 1ª diferença sem autocorrelação, o preço se comporta como um passeio aleatório: nenhum componente do próprio passado prevê a variação de amanhã. Os modelos univariados empatam com a naive, as árvores perdem para ela por não extrapolar, e só a informação contemporânea do setor melhora o erro. O SARIMAX erra US$ 0,56 nos 5 primeiros pregões do bloco e US$ 2,27 nos pregões 36–50; a naive vai de US$ 0,62 a US$ 3,02. O erro cresce com o horizonte, como esperado num passeio aleatório.</p>
+        <p style="font-size:.9rem;color:var(--muted)">Nenhuma diferença foi testada estatisticamente. Um teste de Diebold-Mariano entre cada modelo e sua referência ingênua seria o próximo passo.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 9 — RESÍDUOS ============ -->
+    <section class="page" id="p9">
+      <h1>Análise dos resíduos</h1>
+      <div class="eyebrow">Erros fora da amostra, por modelo</div>
+
+      <figure class="chart">
+        <img src="img/residuos.png" alt="Para cada modelo, os resíduos de teste em barras com longos blocos do mesmo sinal à esquerda e a ACF dos resíduos decaindo lentamente de 0,9 à direita">
+        <figcaption>Resíduos (real − previsto, US$) ao longo do teste e ACF até o lag 20, por modelo. A linha tracejada marca a média (viés).</figcaption>
+      </figure>
+
+      <table>
+        <tr><th>Modelo</th><th>Ljung-Box lag 10 (p-valor)</th><th>Ljung-Box lag 20 (p-valor)</th><th>Viés (US$)</th><th>dp (US$)</th><th>ACF lag 1</th><th>Interpretação</th></tr>
+        <tr><td>Random Forest</td><td>4.589 (&lt; 0,001)</td><td>5.749 (&lt; 0,001)</td><td>+0,34</td><td>2,04</td><td>0,89</td><td>Autocorrelação forte; prevê abaixo do real (55% dos dias)</td></tr>
+        <tr><td>XGBoost</td><td>4.739 (&lt; 0,001)</td><td>6.234 (&lt; 0,001)</td><td>+0,54</td><td>2,03</td><td>0,90</td><td>Autocorrelação forte; maior viés (58% dos dias subestimados)</td></tr>
+        <tr><td>SARIMAX</td><td>4.746 (&lt; 0,001)</td><td>5.943 (&lt; 0,001)</td><td>−0,14</td><td>2,42</td><td>0,95</td><td>Autocorrelação forte; sem viés relevante</td></tr>
+        <tr><td>Holt-Winters aditivo</td><td>5.211 (&lt; 0,001)</td><td>6.922 (&lt; 0,001)</td><td>−0,19</td><td>3,07</td><td>0,96</td><td>Autocorrelação forte; maior dispersão entre os escolhidos</td></tr>
+        <tr><td>Holt-Winters multiplicativo</td><td>5.275 (&lt; 0,001)</td><td>7.070 (&lt; 0,001)</td><td>−0,16</td><td>3,38</td><td>0,96</td><td>Autocorrelação forte; maior dispersão</td></tr>
+        <tr><td><em>Persistência 1 passo</em></td><td><em>8,2 (0,61)</em></td><td><em>18,2 (0,57)</em></td><td><em>+0,01</em></td><td><em>0,71</em></td><td><em>0,00</em></td><td><em>Referência: ruído branco</em></td></tr>
+        <tr><td><em>Naive por bloco</em></td><td><em>5.092 (&lt; 0,001)</em></td><td><em>6.581 (&lt; 0,001)</em></td><td><em>+0,02</em></td><td><em>2,96</em></td><td><em>0,95</em></td><td><em>Referência dos estatísticos</em></td></tr>
+      </table>
+      <p style="font-size:.85rem;color:var(--muted)">Ljung-Box com H0: resíduos sem autocorrelação até o lag indicado. Os notebooks reportam os lags 1 a 12, todos com p-valor 0,000.</p>
+
+      <div class="card">
+        <h2>Discussão</h2>
+        <p><strong>Autocorrelação.</strong> Todos os modelos deixam resíduos fortemente autocorrelacionados (p &lt; 0,001 e ACF de 0,89 a 0,96 no lag 1, decaindo devagar). Os motivos diferem por grupo:</p>
+        <ul>
+          <li><strong>SARIMAX e Holt-Winters:</strong> é consequência do protocolo. Dentro de um bloco de 50 pregões, a previsão é praticamente constante (o último nível conhecido) e o preço real se afasta dela como um passeio aleatório, então o erro de um dia é o erro de ontem mais um choque novo. A naive por bloco tem a mesma assinatura (ACF 0,95). Isso não indica falta de especificação, só que o horizonte é longo para uma série desse tipo. Nos resíduos de 1 passo do ajuste no treino, o SARIMAX passa no Ljung-Box (p = 0,99).</li>
+          <li><strong>RF e XGBoost:</strong> aqui a autocorrelação é um defeito do modelo. Com previsão de 1 passo, o resíduo deveria ser parecido com o da persistência (ruído branco, p = 0,61). Em vez disso, há meses seguidos com erro positivo (até +US$ 8 em 2024–2025), justamente os períodos com o preço acima da faixa do treino. É a falta de extrapolação aparecendo como erro persistente.</li>
+        </ul>
+        <p><strong>Viés.</strong> As árvores subestimam: +US$ 0,34 (RF) e +US$ 0,54 (XGBoost), concentrado na alta de 2024–2025. Os estatísticos têm viés pequeno e negativo (−0,14 a −0,19), resultado de compensações: ficam abaixo do real na subida e acima na queda de 2025–2026.</p>
+        <p><strong>Variabilidade.</strong> O desvio-padrão do erro vai de US$ 2,03 (árvores) a US$ 3,38 (HW multiplicativo) e cresce ao longo do teste, acompanhando o nível e a volatilidade do preço: o MAE do SARIMAX passa de US$ 0,78 em 2023 para US$ 2,77 em 2026. Os resíduos têm caudas pesadas (Q-Q plots nos notebooks) e estão fora da normalidade, principalmente os das árvores, que são assimétricos à direita.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 10 — IMPORTÂNCIA DAS FEATURES ============ -->
+    <section class="page" id="p10">
+      <h1>Importância das features</h1>
+      <div class="eyebrow">Random Forest e modelo de especialização (SARIMAX via coeficientes)</div>
+
+      <p>Média do |SHAP value| (TreeExplainer) nos 300 primeiros pregões do teste, com o modelo ajustado no treino inicial (notebooks 3 e 4). As externas aparecem em terracota. O eixo está em escala log, porque o primeiro lugar é de 10 a 1.000 vezes maior que os demais.</p>
+
+      <figure class="chart">
+        <img src="img/importancia_random_forest.png" alt="Random Forest: Close_lag_1 com SHAP 5,86, muito acima de Close_media_3 com 0,15 e CALM_Close_delta_sazonal com 0,05">
+        <figcaption>Random Forest: top 15 features por média de |SHAP| (US$).</figcaption>
+      </figure>
+      <figure class="chart">
+        <img src="img/importancia_xgboost.png" alt="XGBoost: Close_lag_1 com SHAP 4,95, seguido de Close_media_3 com 0,41 e Close_lag_2 com 0,28">
+        <figcaption>XGBoost: top 15 features por média de |SHAP| (US$).</figcaption>
+      </figure>
+
+      <table>
+        <tr><th>Feature</th><th>Random Forest: média |SHAP| (US$)</th><th>XGBoost: média |SHAP| (US$)</th></tr>
+        <tr><td><code>Close_lag_1</code> (preço de ontem)</td><td>5,861</td><td>4,948</td></tr>
+        <tr><td><code>Close_media_3</code></td><td>0,148</td><td>0,406</td></tr>
+        <tr><td><code>Close_lag_2</code></td><td>0,029</td><td>0,277</td></tr>
+        <tr><td><code>CALM_Close_delta_sazonal</code> (externa)</td><td>0,052</td><td>0,069</td></tr>
+        <tr><td><code>XLP_Close_media_76</code> (externa)</td><td>0,009</td><td>0,013</td></tr>
+        <tr><td><code>TSN_Close_lag_14</code> (externa)</td><td>— (fora do top 20)</td><td>0,036</td></tr>
+      </table>
+      <p>As duas árvores são, essencialmente, "o preço de ontem": <code>Close_lag_1</code> responde por cerca de 95% (RF) e 82% (XGBoost) da soma das importâncias do top 20, e o restante vem de outros resumos do preço recente (média de 3 dias, lag 2). Entre as externas, a mais usada é a variação de 76 pregões da Cal-Maine, com contribuição ~100 vezes menor que a do lag 1.</p>
+
+      <div class="card">
+        <h2>SARIMAX — coeficientes das variáveis externas</h2>
+        <table>
+          <tr><th>Variável</th><th>Coeficiente (padronizado)</th><th>US$ de PPC por US$ da externa</th><th>Sinal</th><th>Significância</th><th>Média |SHAP| (notebook)</th></tr>
+          <tr><td><code>TSN_Close</code></td><td>0,634 (ep 0,016)</td><td>+0,18</td><td>+</td><td>p &lt; 0,001</td><td>1,02</td></tr>
+          <tr><td><code>XLP_Close</code></td><td>0,499 (ep 0,035)</td><td>+0,18</td><td>+</td><td>p &lt; 0,001</td><td>1,60</td></tr>
+          <tr><td><code>CALM_Close</code></td><td>0,102 (ep 0,014)</td><td>+0,07</td><td>+</td><td>p &lt; 0,001</td><td>0,36</td></tr>
+          <tr><td>ar.L1 / ar.L2</td><td>−0,32 / +0,64</td><td>—</td><td>—</td><td>p = 0,73 / 0,48 (não significativos)</td><td>—</td></tr>
+          <tr><td>ma.L1 / ma.L2</td><td>+0,31 / −0,64</td><td>—</td><td>—</td><td>p = 0,74 / 0,47 (não significativos)</td><td>—</td></tr>
+        </table>
+        <p>Ajuste no treino com as séries padronizadas. A conversão para US$ usa os desvios-padrão do treino (Close 4,31; TSN 14,95; XLP 11,76; CALM 6,63). Como o modelo tem d = 1, os coeficientes valem para as <em>variações</em>: no mesmo dia, cada US$ 1 de alta da Tyson acompanha ~US$ 0,18 de alta da PPC. As três são positivas e muito significativas, coerentes com a correlação das variações diárias (página 2). O SHAP do notebook ordena XLP acima de TSN porque mede a contribuição no nível das exógenas no teste, e o XLP se afastou mais da média do treino.</p>
+      </div>
+
+      <div class="card">
+        <h2>Holt-Winters — componentes</h2>
+        <p>O Holt-Winters não tem features. O notebook 2 aplica SHAP a uma regressão linear sobre os componentes ajustados e encontra nível 3,44, sazonalidade 0,28 e tendência 0,03. Isso confirma o que os parâmetros já mostram (α ≈ 0,96, β ≈ 0): a previsão é quase só o nível, que é o último preço observado. O gráfico dos componentes está na página 7.</p>
+      </div>
+
+      <div class="card">
+        <h2>Papel das variáveis externas</h2>
+        <p><strong>Nas árvores, as externas quase não contribuem.</strong> Elas entram corretamente defasadas (até <em>t−1</em>), e nessa forma não têm poder preditivo: a variação de ontem da Tyson ou do XLP não antecipa a variação de hoje da PPC, assim como a da própria PPC não antecipa (ACF ≈ 0).</p>
+        <p><strong>No SARIMAX, elas são todo o ganho, mas não estariam disponíveis.</strong> O modelo usa o preço de TSN, XLP e CALM no próprio dia previsto, até 50 pregões depois da origem. Na data da previsão esses valores são desconhecidos, então o MAE de US$ 1,836 não é atingível na prática. Sem elas, o ARIMA empata com a naive (US$ 2,316). Para usar o SARIMAX de forma operacional seria preciso prever as próprias exógenas ou usá-las defasadas, e a evidência das árvores indica que, defasadas, elas não ajudariam.</p>
+        <p style="font-size:.9rem;color:var(--muted)">SHAP mede contribuição para a previsão no conjunto analisado, não causalidade. No SARIMAX, a forte relação contemporânea reflete fatores comuns de mercado e do setor, não uma influência de uma ação sobre a outra.</p>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 11 — CONCLUSÃO DA BASE ============ -->
+    <section class="page" id="p11">
+      <h1>Conclusão desta base</h1>
+      <div class="eyebrow">Preço de fechamento da Pilgrim's Pride (PPC), pregões diários</div>
+
+      <div class="card">
+        <h2>Melhor modelo</h2>
+        <p>Pelo ranking do notebook, o <strong>Random Forest</strong> vence (MAE de US$ 1,304), seguido do XGBoost (1,347), SARIMAX (1,836) e Holt-Winters aditivo e multiplicativo (2,376 e 2,514). Comparando cada modelo com uma referência ingênua do mesmo horizonte, porém, <strong>nenhum supera a previsão ingênua de forma utilizável</strong>:</p>
+        <ul>
+          <li>RF e XGBoost (1 passo) erram 2,8 vezes mais que repetir o preço de ontem (US$ 0,47).</li>
+          <li>Holt-Winters e ARIMA sem exógenas (até 50 passos) empatam com ou perdem para a naive por bloco (US$ 2,31).</li>
+          <li>O SARIMAX é o único que bate sua referência (−21%), mas porque usa os preços futuros de TSN, XLP e CALM.</li>
+        </ul>
+        <p>O resultado é coerente com a série: um preço de ação com tendência forte (F<sub>T</sub> = 0,96), sazonalidade praticamente ausente (F<sub>S</sub> ≈ 0 no nível e 0,195 na diferença) e variação diária sem autocorrelação. Para esse tipo de série, a previsão ingênua é a referência correta e muito difícil de bater.</p>
+      </div>
+
+      <div class="card">
+        <h2>Principais limitações</h2>
+        <ul>
+          <li><strong>Horizontes diferentes no mesmo ranking.</strong> Árvores com 1 passo e estatísticos com 1–50 passos, em janelas de teste de tamanhos diferentes (819 e 857).</li>
+          <li><strong>Vazamento no SARIMAX.</strong> As exógenas do dia previsto entram no forecast de todo o bloco.</li>
+          <li><strong>Mudança de regime no teste.</strong> 489 dos 857 pregões de teste (57%) estão acima do máximo do treino, o que penaliza muito as árvores, que não extrapolam.</li>
+          <li><strong>Baselines dos notebooks inadequados.</strong> Repetir o último preço do treino por três anos (MAE ~US$ 15) faz qualquer modelo parecer 85–91% melhor. As referências no mesmo protocolo mudam a conclusão.</li>
+          <li><strong>Sazonalidade fraca e período arbitrário.</strong> O m = 76 é o máximo de uma curva sem pico claro. Os termos sazonais pioraram o AIC do SARIMAX e o erro do Holt-Winters.</li>
+          <li><strong>Feriados preenchidos.</strong> 124 dias com variação zero artificial ficaram na série.</li>
+          <li><strong>Saídas desatualizadas nos notebooks.</strong> As células exploratórias do notebook 1 (correlação, ACF, STL) mostram a série diferenciada de uma versão anterior, e algumas saídas dos notebooks 2 e 4 não batem com os resultados salvos. Os números deste relatório foram regenerados com <code>gerar_relatorio.py</code>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Decisões metodológicas que precisaram de ajuste</h2>
+        <ul>
+          <li><strong>Período sazonal escolhido pela varredura de STL</strong> na 1ª diferença (m = 76), já que pregões diários não têm um ciclo natural.</li>
+          <li><strong>Diferenciação decidida pelo auto_arima</strong> (d = 1, confirmada por ADF e KPSS) e padronização ajustada só no treino.</li>
+          <li><strong>Volume, USD/MXN e OHLC excluídos</strong> por correlação desprezível ou por serem do próprio dia.</li>
+          <li><strong>Referências ingênuas recalculadas no protocolo walk-forward</strong> (persistência de 1 passo e naive por bloco) e <strong>ARIMA sem exógenas</strong> como teste de sensibilidade, para separar o ganho real do ganho por vazamento.</li>
+          <li><strong>Próximos passos sugeridos:</strong> prever o retorno (ou o log-preço diferenciado) em vez do nível nas árvores, para resolver a extrapolação; unificar o horizonte (por exemplo, h = 1 para todos, com filtragem 1 passo à frente no SARIMAX e no Holt-Winters); usar no SARIMAX só exógenas conhecidas na origem; e remover os feriados preenchidos.</li>
+        </ul>
+      </div>
+    </section>
+
+    <div class="pager">
+      <button id="prevBtn">← Anterior</button>
+      <button id="nextBtn">Próxima →</button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const navBtns = Array.from(document.querySelectorAll('.nav-btn'));
+  let current = 0;
+
+  function showPage(idx){
+    pages.forEach((p,i)=> p.classList.toggle('active', i===idx));
+    navBtns.forEach((b,i)=> b.classList.toggle('active', i===idx));
+    current = idx;
+    document.getElementById('prevBtn').disabled = idx === 0;
+    document.getElementById('nextBtn').disabled = idx === pages.length-1;
+    window.scrollTo(0,0);
+  }
+
+  navBtns.forEach((btn, i) => btn.addEventListener('click', () => showPage(i)));
+  document.getElementById('prevBtn').addEventListener('click', () => showPage(Math.max(0, current-1)));
+  document.getElementById('nextBtn').addEventListener('click', () => showPage(Math.min(pages.length-1, current+1)));
+  showPage(0);
+</script>
+</body>
+</html>
