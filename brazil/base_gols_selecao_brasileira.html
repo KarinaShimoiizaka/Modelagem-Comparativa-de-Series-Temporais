@@ -40,6 +40,10 @@
   table { width: 100%; margin: 10px 0 16px; border-collapse: collapse; font-size: .9rem; }
   th, td { padding: 8px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
   th { background: var(--accent-soft); font-weight: 600; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .chart-frame { margin: 12px 0 18px; }
+  .chart-frame img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  .chart-frame figcaption { margin-top: 6px; color: var(--muted); font-size: .82rem; }
   .pager { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--line); }
   .pager button { padding: 9px 15px; border: 0; border-radius: 4px; background: var(--accent); color: white; cursor: pointer; }
   .pager button:disabled { opacity: .35; cursor: default; }
@@ -47,6 +51,7 @@
     .app { display: block; }
     nav { position: relative; width: 100%; height: auto; }
     main { padding: 28px 18px 55px; }
+    .grid2 { grid-template-columns: 1fr; }
   }
   @media print {
     nav, .pager { display: none !important; }
@@ -54,7 +59,7 @@
     main { max-width: none; padding: 0; }
     section.page { display: block !important; break-before: page; }
     section.page:first-of-type { break-before: auto; }
-    .card, table { break-inside: avoid; }
+    .card, table, .chart-frame, .grid2 { break-inside: avoid; }
   }
 </style>
 </head>
@@ -93,6 +98,13 @@
         </table>
         <div class="note">A série-alvo é a contagem de partidas, não gols marcados ou sofridos.</div>
       </div>
+      <div class="card">
+        <h2>Série mensal e variação ao longo do tempo</h2>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/serie_mensal.png" alt="Série mensal de jogos da Seleção Brasileira e estatísticas móveis de 12 meses">
+          <figcaption>Contagem mensal de partidas e média/desvio-padrão móveis de 12 meses, conforme o notebook.</figcaption>
+        </figure>
+      </div>
     </section>
 
     <section class="page" id="p2">
@@ -109,6 +121,19 @@
         </table>
         <p>Fonte utilizada: <a href="https://www.kaggle.com/datasets/cashncarry/fifaworldranking">FIFA World Ranking 1992–2024 (Kaggle)</a>, arquivo local <code>fifa_ranking-2024-06-20.csv</code>. Os outros dois CSVs na pasta são snapshots anteriores do mesmo histórico; não são variáveis independentes. A pontuação foi dividida pelo máximo da respectiva publicação para reduzir a quebra de escala do sistema de pontos.</p>
         <div class="warning">Para previsões de vários meses, o ranking é congelado no último valor disponível na origem. Nenhuma publicação posterior à origem entra no horizonte previsto. Como a primeira publicação é de 31/12/1992, os modelos comparados usam o período comum desde jan/1993.</div>
+      </div>
+      <div class="card">
+        <h2>Evolução das variáveis do Brasil no ranking FIFA</h2>
+        <div class="grid2">
+          <figure class="chart-frame">
+            <img src="graficos_base_gols/ranking_fifa.svg" alt="Evolução histórica da posição do Brasil no ranking FIFA, com posição 1 no topo">
+            <figcaption>Posição publicada do Brasil; posição 1 representa o melhor ranking.</figcaption>
+          </figure>
+          <figure class="chart-frame">
+            <img src="graficos_base_gols/pontos_fifa_relativos.svg" alt="Pontos FIFA do Brasil divididos pela pontuação máxima de cada publicação">
+            <figcaption>Pontos do Brasil divididos pelo máximo da mesma publicação, reduzindo as mudanças de escala.</figcaption>
+          </figure>
+        </div>
       </div>
     </section>
 
@@ -136,6 +161,10 @@
           <tr><td>Abr</td><td>0,69</td><td>Ago</td><td>0,51</td><td>Dez</td><td>0,37</td></tr>
         </table>
         <div class="note">Junho tem a maior média mensal da amostra; 66,1% dos meses não têm jogos.</div>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/media_mensal.svg" alt="Média de jogos da Seleção Brasileira em cada mês do calendário">
+          <figcaption>Média mensal calculada sobre todo o período da série.</figcaption>
+        </figure>
       </div>
     </section>
 
@@ -152,6 +181,13 @@
           <tr><td>KPSS p-valor</td><td>0,0100</td></tr>
         </table>
         <p>ADF e KPSS levam a indicações diferentes sobre a estacionariedade; por isso, não são tratados como evidência conclusiva isoladamente. A ordem SARIMA foi selecionada na validação temporal.</p>
+      </div>
+      <div class="card">
+        <h2>Componentes da série</h2>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/decomposicao_stl.png" alt="Decomposição STL da série mensal em observado, tendência, sazonalidade e resíduo">
+          <figcaption>Decomposição STL robusta, com período de 12 meses.</figcaption>
+        </figure>
       </div>
     </section>
 
@@ -220,6 +256,10 @@
           <tr><td>5</td><td>Holt-Winters</td><td>1,135</td><td>60</td></tr>
           <tr><td>6</td><td>Sazonal ingênuo (12)</td><td>1,267</td><td>60</td></tr>
         </table>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/mae_modelos.svg" alt="Gráfico de barras do MAE global dos seis modelos, com SARIMAX apresentando o menor erro">
+          <figcaption>MAE global nas 60 previsões walk-forward por modelo; valores menores indicam melhor desempenho.</figcaption>
+        </figure>
       </div>
       <div class="card">
         <h2>MAE por passo do horizonte</h2>
@@ -232,6 +272,10 @@
           <tr><td>Holt-Winters</td><td>1,185</td><td>1,111</td><td>1,130</td><td>1,114</td></tr>
           <tr><td>Sazonal ingênuo (12)</td><td>1,267</td><td>1,267</td><td>1,267</td><td>1,267</td></tr>
         </table>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/mae_horizonte.svg" alt="Gráfico do MAE dos modelos para cada um dos quatro passos previstos">
+          <figcaption>MAE por horizonte, nos mesmos folds temporais da comparação.</figcaption>
+        </figure>
       </div>
     </section>
 
@@ -239,6 +283,11 @@
       <h1>Resíduos e Ljung-Box</h1>
       <div class="eyebrow">Diagnóstico dos erros de um passo do modelo líder, nas 15 origens</div>
       <div class="card">
+        <h2>Resíduos de horizonte 1 do SARIMAX</h2>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/residuos_sarimax.png" alt="Resíduos do SARIMAX por origem de previsão e distribuição dos 15 erros de horizonte 1">
+          <figcaption>Gráfico produzido pelo notebook: resíduos por origem e histograma. A tabela abaixo apresenta o teste Ljung–Box; o gráfico não representa uma ACF.</figcaption>
+        </figure>
         <table>
           <tr><th>Lags</th><th>Estatística Q</th><th>p-valor</th><th>Leitura a 5%</th></tr>
           <tr><td>1</td><td>0,4576</td><td>0,4987</td><td>Sem evidência de autocorrelação</td></tr>
@@ -255,6 +304,10 @@
       <div class="eyebrow">XGBoost: permutação na validação temporal de out/2020 a mai/2021</div>
       <div class="card">
         <h2>Top 10 por importância de permutação</h2>
+        <figure class="chart-frame">
+          <img src="graficos_base_gols/importancia_xgboost.svg" alt="Gráfico das dez features mais importantes por permutação no XGBoost">
+          <figcaption>Importância por permutação do XGBoost na validação temporal; valores próximos de zero indicam contribuição pequena nessa janela.</figcaption>
+        </figure>
         <table>
           <tr><th>Feature</th><th>Importância</th><th>Feature</th><th>Importância</th></tr>
           <tr><td>jogos_lag_12</td><td>0,1308</td><td>jogos_lag_6</td><td>0,0169</td></tr>
