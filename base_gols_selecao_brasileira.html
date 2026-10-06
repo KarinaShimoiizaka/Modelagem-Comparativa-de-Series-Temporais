@@ -88,6 +88,7 @@
           <tr><th>Registros brutos</th><td>1.034 partidas</td></tr>
           <tr><th>Série modelada</th><td>1.300 meses; 859 meses sem partida foram representados por zero</td></tr>
           <tr><th>Média e mediana</th><td>0,795 jogo por mês; mediana 0</td></tr>
+          <tr><th>Período comum da comparação</th><td>janeiro de 1993 a dezembro de 2022; 360 meses com cobertura do ranking FIFA</td></tr>
           <tr><th>Protocolo comparativo</th><td>15 origens walk-forward × 4 meses à frente = 60 previsões por modelo</td></tr>
         </table>
         <div class="note">A série-alvo é a contagem de partidas, não gols marcados ou sofridos.</div>
@@ -96,15 +97,18 @@
 
     <section class="page" id="p2">
       <h1>Variáveis externas</h1>
-      <div class="eyebrow">Regressores usados no SARIMAX e disponibilidade na origem da previsão</div>
+      <div class="eyebrow">Regressores usados nos modelos com exógenas e disponibilidade na origem da previsão</div>
       <div class="card">
-        <h2>Regressores calendarizados</h2>
+        <h2>Calendário e ranking FIFA</h2>
         <table>
           <tr><th>Variável</th><th>Descrição</th><th>Disponível na origem?</th><th>VIF</th></tr>
           <tr><td>sin_mes</td><td>Componente seno do mês do calendário</td><td>Sim; determinística</td><td>1,0</td></tr>
           <tr><td>cos_mes</td><td>Componente cosseno do mês do calendário</td><td>Sim; determinística</td><td>1,0</td></tr>
+          <tr><td>rank_fifa_brasil</td><td>Posição do Brasil (1 = melhor), última publicação anterior ao mês-alvo</td><td>Sim; valor conhecido antes do mês previsto</td><td>4,394</td></tr>
+          <tr><td>pontos_fifa_relativos</td><td>Pontos do Brasil divididos pela pontuação máxima da mesma publicação</td><td>Sim; valor conhecido antes do mês previsto</td><td>4,392</td></tr>
         </table>
-        <div class="warning">O CSV não fornece um calendário futuro de competições. Indicadores baseados nas competições efetivamente disputadas não foram usados como exógenas, pois revelariam informação futura.</div>
+        <p>Fonte utilizada: <a href="https://www.kaggle.com/datasets/cashncarry/fifaworldranking">FIFA World Ranking 1992–2024 (Kaggle)</a>, arquivo local <code>fifa_ranking-2024-06-20.csv</code>. Os outros dois CSVs na pasta são snapshots anteriores do mesmo histórico; não são variáveis independentes. A pontuação foi dividida pelo máximo da respectiva publicação para reduzir a quebra de escala do sistema de pontos.</p>
+        <div class="warning">Para previsões de vários meses, o ranking é congelado no último valor disponível na origem. Nenhuma publicação posterior à origem entra no horizonte previsto. Como a primeira publicação é de 31/12/1992, os modelos comparados usam o período comum desde jan/1993.</div>
       </div>
     </section>
 
@@ -153,7 +157,7 @@
 
     <section class="page" id="p5">
       <h1>Feature engineering</h1>
-      <div class="eyebrow">Trinta preditores compartilhados por Random Forest e XGBoost</div>
+      <div class="eyebrow">Trinta e dois preditores compartilhados por Random Forest e XGBoost</div>
       <div class="card">
         <table>
           <tr><th>Família</th><th>Quantidade</th><th>Construção</th></tr>
@@ -161,9 +165,10 @@
           <tr><td>Médias móveis</td><td>4</td><td>Janelas anteriores de 3, 6, 9 e 12 meses</td></tr>
           <tr><td>Desvios móveis</td><td>3</td><td>Janelas anteriores de 3, 6 e 12 meses</td></tr>
           <tr><td>Calendário</td><td>11</td><td>Indicadores dos meses de fevereiro a dezembro; janeiro é referência</td></tr>
-          <tr><th>Total</th><th>30</th><th>Features conhecidas antes do mês-alvo</th></tr>
+          <tr><td>Ranking FIFA</td><td>2</td><td>Posição e pontos relativos conhecidos na origem; congelados no horizonte futuro</td></tr>
+          <tr><th>Total</th><th>32</th><th>Features conhecidas na origem do mês-alvo</th></tr>
         </table>
-        <div class="note">O teste anti-vazamento do notebook confirmou que a matriz tem 30 colunas finitas e que os lags e janelas usados em cada linha antecedem a observação-alvo.</div>
+        <div class="note">O teste anti-vazamento confirmou 32 colunas finitas. Lags e janelas usam apenas meses anteriores; as variáveis FIFA respeitam a data de publicação e permanecem fixas durante cada previsão de múltiplos passos.</div>
       </div>
     </section>
 
@@ -173,12 +178,13 @@
       <div class="card">
         <table>
           <tr><th>Etapa</th><th>Configuração</th></tr>
+          <tr><td>Amostra comparável</td><td>Jan/1993–dez/2022; todos os modelos treinados e avaliados nesse mesmo recorte</td></tr>
           <tr><td>Validação interna</td><td>Origens em jan/2020 e mai/2020; 4 passos por origem; usada para selecionar hiperparâmetros</td></tr>
           <tr><td>Avaliação final</td><td>15 origens mensais, de jun/2021 a ago/2022</td></tr>
           <tr><td>Horizonte</td><td>4 meses à frente em cada origem</td></tr>
           <tr><td>Datas previstas</td><td>jul/2021 a dez/2022</td></tr>
           <tr><td>Previsões avaliadas</td><td>60 por modelo; previsões sobrepostas contam em horizontes diferentes</td></tr>
-          <tr><td>Atualização</td><td>Modelo reajustado em cada origem; apenas valores já observados são incorporados ao histórico</td></tr>
+          <tr><td>Atualização</td><td>Modelo reajustado em cada origem; ranking congelado no último valor disponível antes do primeiro mês previsto</td></tr>
         </table>
         <div class="note">Os hiperparâmetros foram escolhidos na validação interna antes da avaliação final. O MAE do teste não foi usado para essa escolha.</div>
       </div>
@@ -190,28 +196,28 @@
       <div class="card">
         <table>
           <tr><th>Modelo</th><th>Busca e configuração selecionada</th><th>MAE validação</th></tr>
-          <tr><td>SARIMAX</td><td>Grade 3×3×3×3; d=0, D=1, m=12. SARIMAX(2,0,0)×(2,1,1,12), com sin_mes e cos_mes</td><td>1,317</td></tr>
-          <tr><td>Holt-Winters</td><td>Busca entre tendência e sazonalidade aditivas ou ausentes; configuração selecionada sem tendência e sem sazonalidade</td><td>0,800</td></tr>
-          <tr><td>Random Forest</td><td>ParameterSampler, 40 combinações; 200 árvores, max_depth=None, min_samples_split=10, min_samples_leaf=5, max_features=sqrt</td><td>1,057</td></tr>
-          <tr><td>XGBoost</td><td>Optuna/TPE, 60 trials; 100 árvores, profundidade 6, learning_rate=0,1369, min_child_weight=10, objective=reg:absoluteerror</td><td>0,237</td></tr>
+          <tr><td>SARIMAX</td><td>Grade 3×3×3×3; d=0, D=1, m=12. SARIMAX(0,0,2)×(2,1,2,12), com seno/cosseno mensal e as duas variáveis FIFA</td><td>0,937</td></tr>
+          <tr><td>Holt-Winters</td><td>Tendência aditiva sem amortecimento; sem sazonalidade; inicialização heurística</td><td>1,076</td></tr>
+          <tr><td>Random Forest</td><td>ParameterSampler, 40 combinações; 500 árvores, max_depth=None, min_samples_split=2, min_samples_leaf=3, max_features=0,5</td><td>1,512</td></tr>
+          <tr><td>XGBoost</td><td>Optuna/TPE, 60 trials; 100 árvores, profundidade 5, learning_rate≈0,0123, min_child_weight=20, objective=reg:absoluteerror</td><td>1,106</td></tr>
         </table>
-        <p>A busca SARIMAX testa 81 configurações e seleciona pelo MAE interno entre as cinco com menor BIC. O Random Forest e o XGBoost utilizam as mesmas 30 features, com previsões recursivas nos horizontes futuros.</p>
+        <p>A busca SARIMAX testa 81 configurações e seleciona pelo MAE interno entre as cinco com menor BIC. Random Forest e XGBoost usam as mesmas 32 features, com previsões recursivas; durante cada horizonte, as variáveis FIFA não são atualizadas com publicações futuras.</p>
         <div class="warning">MAE de validação serve para seleção e não deve ser confundido com o resultado fora da amostra apresentado na etapa 8.</div>
       </div>
     </section>
 
     <section class="page" id="p8">
       <h1>Resultados comparativos (MAE)</h1>
-      <div class="eyebrow">Erro absoluto médio nas 60 previsões walk-forward por modelo — menor é melhor</div>
+      <div class="eyebrow">Erro absoluto médio nas 60 previsões walk-forward por modelo, no período comum desde 1993 — menor é melhor</div>
       <div class="card">
         <h2>MAE global fora da amostra</h2>
         <table>
           <tr><th>Posição</th><th>Modelo</th><th>MAE</th><th>N previsões</th></tr>
-          <tr><td>1</td><td>SARIMAX</td><td><strong>0,801</strong></td><td>60</td></tr>
-          <tr><td>2</td><td>XGBoost</td><td>0,967</td><td>60</td></tr>
-          <tr><td>3</td><td>Random Forest</td><td>0,978</td><td>60</td></tr>
-          <tr><td>4</td><td>Holt-Winters</td><td>1,050</td><td>60</td></tr>
-          <tr><td>5</td><td>Média histórica</td><td>1,052</td><td>60</td></tr>
+          <tr><td>1</td><td>SARIMAX</td><td><strong>0,778</strong></td><td>60</td></tr>
+          <tr><td>2</td><td>Random Forest</td><td>0,960</td><td>60</td></tr>
+          <tr><td>3</td><td>XGBoost</td><td>0,961</td><td>60</td></tr>
+          <tr><td>4</td><td>Média histórica</td><td>1,046</td><td>60</td></tr>
+          <tr><td>5</td><td>Holt-Winters</td><td>1,135</td><td>60</td></tr>
           <tr><td>6</td><td>Sazonal ingênuo (12)</td><td>1,267</td><td>60</td></tr>
         </table>
       </div>
@@ -219,11 +225,11 @@
         <h2>MAE por passo do horizonte</h2>
         <table>
           <tr><th>Modelo</th><th>1 mês</th><th>2 meses</th><th>3 meses</th><th>4 meses</th></tr>
-          <tr><td>SARIMAX</td><td>0,750</td><td>0,800</td><td>0,773</td><td>0,883</td></tr>
-          <tr><td>XGBoost</td><td>0,970</td><td>0,944</td><td>0,929</td><td>1,024</td></tr>
-          <tr><td>Random Forest</td><td>0,958</td><td>1,026</td><td>0,990</td><td>0,938</td></tr>
-          <tr><td>Holt-Winters</td><td>1,107</td><td>1,013</td><td>1,040</td><td>1,040</td></tr>
-          <tr><td>Média histórica</td><td>1,109</td><td>1,014</td><td>1,042</td><td>1,042</td></tr>
+          <tr><td>SARIMAX</td><td>0,810</td><td>0,753</td><td>0,726</td><td>0,823</td></tr>
+          <tr><td>Random Forest</td><td>0,930</td><td>0,990</td><td>0,963</td><td>0,956</td></tr>
+          <tr><td>XGBoost</td><td>1,000</td><td>0,956</td><td>0,941</td><td>0,945</td></tr>
+          <tr><td>Média histórica</td><td>1,087</td><td>1,057</td><td>1,020</td><td>1,021</td></tr>
+          <tr><td>Holt-Winters</td><td>1,185</td><td>1,111</td><td>1,130</td><td>1,114</td></tr>
           <tr><td>Sazonal ingênuo (12)</td><td>1,267</td><td>1,267</td><td>1,267</td><td>1,267</td></tr>
         </table>
       </div>
@@ -235,11 +241,11 @@
       <div class="card">
         <table>
           <tr><th>Lags</th><th>Estatística Q</th><th>p-valor</th><th>Leitura a 5%</th></tr>
-          <tr><td>1</td><td>0,8148</td><td>0,3667</td><td>Sem evidência de autocorrelação</td></tr>
-          <tr><td>3</td><td>1,3362</td><td>0,7206</td><td>Sem evidência de autocorrelação</td></tr>
-          <tr><td>6</td><td>2,1833</td><td>0,9021</td><td>Sem evidência de autocorrelação</td></tr>
+          <tr><td>1</td><td>0,4576</td><td>0,4987</td><td>Sem evidência de autocorrelação</td></tr>
+          <tr><td>3</td><td>1,2213</td><td>0,7479</td><td>Sem evidência de autocorrelação</td></tr>
+          <tr><td>6</td><td>2,0726</td><td>0,9129</td><td>Sem evidência de autocorrelação</td></tr>
         </table>
-        <p>Modelo avaliado: SARIMAX. Resíduo médio: 0,006 jogo. Teste t para média dos resíduos igual a zero: p-valor=0,9842; não há evidência de viés médio a 5%.</p>
+        <p>Modelo avaliado: SARIMAX. Resíduo médio: 0,179 jogo. Teste t para média dos resíduos igual a zero: p-valor=0,5737; não há evidência de viés médio a 5%.</p>
         <div class="warning">O diagnóstico usa apenas 15 erros de horizonte 1; a amostra é pequena, então ausência de significância não prova que os resíduos sejam ruído branco.</div>
       </div>
     </section>
@@ -251,20 +257,21 @@
         <h2>Top 10 por importância de permutação</h2>
         <table>
           <tr><th>Feature</th><th>Importância</th><th>Feature</th><th>Importância</th></tr>
-          <tr><td>jogos_lag_12</td><td>0,1333</td><td>jogos_lag_1</td><td>0,0322</td></tr>
-          <tr><td>dp_3</td><td>0,0230</td><td>media_3</td><td>0,0150</td></tr>
-          <tr><td>jogos_lag_11</td><td>0,0103</td><td>mes_12</td><td>0,0065</td></tr>
-          <tr><td>jogos_lag_3</td><td>0,0063</td><td>dp_6</td><td>0,0063</td></tr>
-          <tr><td>jogos_lag_6</td><td>0,0026</td><td>jogos_lag_2</td><td>0,0009</td></tr>
+          <tr><td>jogos_lag_12</td><td>0,1308</td><td>jogos_lag_6</td><td>0,0169</td></tr>
+          <tr><td>jogos_lag_5</td><td>0,0057</td><td>jogos_lag_2</td><td>0,0030</td></tr>
+          <tr><td>media_6</td><td>0,0010</td><td>jogos_lag_11</td><td>0,0004</td></tr>
+          <tr><td>dp_6</td><td>0,0003</td><td>jogos_lag_1</td><td>0,0001</td></tr>
+          <tr><td>jogos_lag_7</td><td>0,0000</td><td>jogos_lag_9</td><td>0,0000</td></tr>
         </table>
         <h3>Importância agregada por família</h3>
         <table>
           <tr><th>Família</th><th>Importância agregada</th></tr>
-          <tr><td>Lags</td><td>0,1794</td></tr>
-          <tr><td>Janelas móveis</td><td>0,0442</td></tr>
-          <tr><td>Calendário mensal</td><td>0,0023</td></tr>
+          <tr><td>Lags</td><td>0,1560</td></tr>
+          <tr><td>Janelas móveis</td><td>0,0009</td></tr>
+          <tr><td>Calendário mensal</td><td>0,0000</td></tr>
+          <tr><td>Ranking FIFA</td><td>0,0000</td></tr>
         </table>
-        <p>Os coeficientes SARIMAX estimados para sin_mes e cos_mes arredondam para 0,0 e −0,0, respectivamente, depois do controle sazonal do próprio modelo.</p>
+        <p>Coeficientes SARIMAX: sin_mes=0,0000; cos_mes=0,0000; rank_fifa_brasil=0,0215; pontos_fifa_relativos=−0,2334. A importância por permutação do ranking ficou próxima de zero para o XGBoost nesta janela de validação.</p>
       </div>
     </section>
 
@@ -272,12 +279,12 @@
       <h1>Conclusão desta base</h1>
       <div class="card">
         <h2>Melhor modelo nesta avaliação</h2>
-        <p><strong>SARIMAX obteve o menor MAE (0,801)</strong>, seguido por XGBoost (0,967) e Random Forest (0,978), no conjunto de 60 previsões walk-forward por modelo. O MAE do SARIMAX foi 17,1% menor que o do segundo colocado e 23,9% menor que o da média histórica (1,052).</p>
+        <p><strong>SARIMAX obteve o menor MAE (0,778)</strong>, seguido por Random Forest (0,960) e XGBoost (0,961), no conjunto de 60 previsões walk-forward por modelo. O MAE do SARIMAX foi 19,0% menor que o do segundo colocado e 25,6% menor que o da média histórica (1,046).</p>
       </div>
       <div class="card">
         <h2>Limitações e decisão metodológica</h2>
-        <p>Há 859 meses sem partidas em 1.300 observações, tornando a série esparsa e a previsão difícil. As origens são consecutivas e os horizontes se sobrepõem; as 60 previsões não são 60 observações independentes. A avaliação usa somente a janela disponível até dezembro de 2022.</p>
-        <p>O arquivo não contém um calendário futuro de torneios. Para evitar vazamento, o notebook não usa rótulos de competições ocorridas como se fossem conhecidos antes dos jogos; as exógenas SARIMAX são somente as componentes determinísticas do mês.</p>
+        <p>A análise exploratória mantém o histórico completo de setembro/1914 a dezembro/2022. Como o ranking FIFA começa em 31/12/1992, o treinamento e a comparação usam apenas 360 meses de janeiro/1993 a dezembro/2022; 144 desses meses não tiveram partidas. As origens são consecutivas e os horizontes se sobrepõem, então as 60 previsões não são observações independentes.</p>
+        <p>O efeito adicional das variáveis FIFA não deve ser inferido apenas pelo ranking comparativo entre famílias de modelos: a importância por permutação no XGBoost foi praticamente nula. O ranking foi usado somente quando já publicado e congelado durante cada horizonte, evitando vazamento temporal.</p>
       </div>
       <div class="note">Todos os números desta página e das tabelas anteriores correspondem às saídas executadas de brazil/notebook.ipynb. Se os dados ou a busca de hiperparâmetros forem alterados, reexecute o notebook e atualize este relatório.</div>
     </section>
