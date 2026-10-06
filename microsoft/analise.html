@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microsoft Stock — NASDAQ | Séries Temporais</title>
+<style>
+  :root{
+    --ink:#1b1f23;
+    --paper:#fbfaf7;
+    --panel:#ffffff;
+    --line:#dcd7cc;
+    --muted:#6b6558;
+    --accent:#2f5d50;      /* verde-escuro, remete a "trend/growth" */
+    --accent-soft:#e4ede9;
+    --warn:#9a4b3a;        /* terracota escurecido, usado só em alertas/vazamento */
+    --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15.5px;
+    line-height:1.55;
+  }
+
+  /* ---------- layout geral: nav lateral + páginas ---------- */
+  .app{ display:flex; min-height:100vh; }
+
+  nav.pages{
+    width:250px;
+    flex-shrink:0;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:28px 0;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  nav.pages .brand{
+    font-family:var(--font-display);
+    font-size:1.05rem;
+    padding:0 24px 20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:8px;
+  }
+  nav.pages .brand small{
+    display:block; color:var(--muted); font-family:var(--font-body); font-size:.78rem; margin-top:4px;
+  }
+  nav.pages button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:9px 24px;
+    font:inherit;
+    font-size:.92rem;
+    color:var(--muted);
+    cursor:pointer;
+    border-left:3px solid transparent;
+  }
+  nav.pages button:hover{ color:var(--ink); background:var(--accent-soft); }
+  nav.pages button.active{
+    color:var(--accent);
+    border-left-color:var(--accent);
+    background:var(--accent-soft);
+    font-weight:600;
+  }
+
+  main{ flex:1; padding:48px 56px 80px; max-width:980px; }
+
+  section.page{ display:none; animation:fade .25s ease; }
+  section.page.active{ display:block; }
+  @keyframes fade{ from{opacity:0} to{opacity:1} }
+
+  h1{ font-family:var(--font-display); font-size:2rem; margin:0 0 6px; }
+  h2{ font-family:var(--font-display); font-size:1.3rem; margin:0 0 18px; color:var(--accent); }
+  h3{ font-size:1.02rem; margin:28px 0 8px; }
+  .eyebrow{ color:var(--muted); font-size:.85rem; margin-bottom:24px; }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:20px 22px;
+    margin-bottom:18px;
+  }
+
+  .fill{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    padding:14px 16px;
+    color:var(--muted);
+    font-size:.9rem;
+    margin:10px 0 20px;
+  }
+  .fill code{ font-family:var(--font-mono); font-size:.82rem; }
+
+  table{ width:100%; border-collapse:collapse; margin:12px 0 20px; font-size:.9rem; }
+  th,td{ border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th{ background:var(--accent-soft); font-weight:600; }
+
+  .placeholder-img{
+    border:1px dashed #b9b2a2;
+    background:#f4f1ea;
+    border-radius:4px;
+    height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:.85rem;
+    margin:10px 0 20px;
+  }
+  .placeholder-img.report-figure{
+    height:auto;
+    min-height:220px;
+    padding:8px;
+    background:#fff;
+  }
+  .placeholder-img.report-figure img{
+    display:block;
+    width:100%;
+    height:auto;
+  }
+
+  .flag{
+    display:inline-block;
+    font-size:.72rem;
+    padding:2px 8px;
+    border-radius:3px;
+    font-weight:600;
+  }
+  .flag.leak{ background:#f4e3de; color:var(--warn); }
+  .flag.ok{ background:var(--accent-soft); color:var(--accent); }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+  .pager{
+    display:flex; justify-content:space-between; margin-top:40px;
+    border-top:1px solid var(--line); padding-top:16px;
+  }
+  .pager button{
+    background:var(--accent); color:#fff; border:none; padding:9px 16px;
+    border-radius:4px; cursor:pointer; font-size:.85rem;
+  }
+  .pager button:disabled{ opacity:.35; cursor:default; }
+
+  @media (max-width:800px){
+    .app{ flex-direction:column; }
+    nav.pages{ width:100%; height:auto; position:relative; }
+    main{ padding:28px 20px 60px; }
+    .grid2{ grid-template-columns:1fr; }
+  }
+
+  /* ---------- impressão: mostra TODAS as etapas, uma por página ---------- */
+  @media print{
+    nav.pages, .pager{ display:none !important; }
+
+    .app{ display:block; }
+    main{ padding:0; max-width:none; }
+
+    /* remove o controle de visibilidade via JS e mostra todas as seções */
+    section.page{
+      display:block !important;
+      opacity:1 !important;
+      animation:none !important;
+    }
+
+    /* cada etapa começa em uma nova página impressa */
+    section.page{
+      break-before:page;
+      page-break-before:always;
+    }
+    /* a primeira não precisa forçar quebra antes dela */
+    section.page:first-of-type{
+      break-before:auto;
+      page-break-before:auto;
+    }
+
+    /* evita que título fique "órfão" separado do conteúdo, e que
+       cards/tabelas sejam cortados ao meio entre páginas */
+    h1, h2, h3{ break-after:avoid; page-break-after:avoid; }
+    .card, table, .placeholder-img, .grid2{ break-inside:avoid; page-break-inside:avoid; }
+
+    body{ background:#fff; }
+    .card{ border-color:#999; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======================================================
+       NAVEGAÇÃO — cada botão = uma "página" do relatório
+       Troque N pelo número/nome da base neste arquivo inteiro
+       ====================================================== -->
+  <nav class="pages">
+    <div class="brand">
+      Microsoft Stock <br>
+      <small>NASDAQ — Gabriel Bento</small>
+    </div>
+    <button class="nav-btn active" data-page="p1">1. Visão geral da base</button>
+    <button class="nav-btn" data-page="p2">2. Variáveis externas</button>
+    <button class="nav-btn" data-page="p3">3. Limpeza e exploração</button>
+    <button class="nav-btn" data-page="p4">4. Decomposição STL</button>
+    <button class="nav-btn" data-page="p5">5. Feature engineering</button>
+    <button class="nav-btn" data-page="p6">6. Walk-forward</button>
+    <button class="nav-btn" data-page="p7">7. Modelos &amp; hiperparâmetros</button>
+    <button class="nav-btn" data-page="p8">8. Resultados (MAE)</button>
+    <button class="nav-btn" data-page="p9">9. Resíduos &amp; Ljung-Box</button>
+    <button class="nav-btn" data-page="p10">10. Importância das features</button>
+    <button class="nav-btn" data-page="p11">11. Conclusão da base</button>
+  </nav>
+
+  <main>
+
+    <!-- ============ PÁGINA 1 — VISÃO GERAL DA BASE ============ -->
+    <section class="page active" id="p1">
+      <h1>Microsoft Stock — preço de abertura</h1>
+      <div class="eyebrow">Fonte, período e características gerais da série-alvo</div>
+
+      <div class="card">
+        <h2>Ficha da base</h2>
+        <table>
+          <tr><th>Fonte dos dados</th><td class="fill"><a href="https://www.kaggle.com/datasets/vijayvvenkitesh/microsoft-stock-time-series-analysis">Microsoft Stock Time Series Analysis — Kaggle</a></td></tr>
+          <tr><th>Variável-alvo</th><td class="fill"><code>Open</code> — preço de abertura da ação da Microsoft no pregão</td></tr>
+          <tr><th>Unidade</th><td class="fill">Dólares americanos (USD)</td></tr>
+          <tr><th>Frequência</th><td class="fill">Diária em dias de negociação (pregões)</td></tr>
+          <tr><th>Período coberto</th><td class="fill">01/04/2015 a 31/03/2021</td></tr>
+          <tr><th>Nº de observações</th><td class="fill">1.511 observações</td></tr>
+          <tr><th>Horizonte de previsão definido</th><td class="fill">h = 1 pregão à frente</td></tr>
+          <tr><th>Justificativa da escolha da base</th><td class="fill">Série relevante, longa e com mudanças de tendência e volatilidade suficientes para comparar modelos estatísticos e de aprendizado de máquina.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Gráfico da série-alvo</h2>
+        <div class="placeholder-img report-figure"><img src="resultados/serie_alvo.png" alt="Preço de abertura da Microsoft entre 2015 e 2021"></div>
+        <div class="fill">A abertura apresenta tendência predominante de alta, saindo da faixa de US$ 40 em 2015 e superando US$ 230 em 2021. Há correções e mudanças de volatilidade, com queda acentuada no início de 2020 e rápida recuperação posterior. Não se observa um ciclo semanal forte.</div>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 2 — VARIÁVEIS EXTERNAS ============ -->
+    <section class="page" id="p2">
+      <h1>Variáveis externas</h1>
+      <div class="eyebrow">Dicionário de variáveis e disponibilidade real na data de previsão</div>
+
+      <div class="card">
+        <h2>Dicionário de variáveis</h2>
+        <table>
+          <tr><th>Variável</th><th>Descrição</th><th>Unidade</th><th>Fonte</th></tr>
+          <tr><td class="fill"><code>Close</code></td><td class="fill">Fechamento da ação da Microsoft</td><td class="fill">USD</td><td class="fill">Base Microsoft Stock</td></tr>
+          <tr><td class="fill"><code>Volume</code></td><td class="fill">Quantidade de ações negociadas</td><td class="fill">Ações</td><td class="fill">Base Microsoft Stock</td></tr>
+          <tr><td class="fill"><code>NASDAQ_Close</code></td><td class="fill">Fechamento do índice NASDAQ Composite</td><td class="fill">Pontos</td><td class="fill">Série NASDAQ</td></tr>
+          <tr><td class="fill"><code>VIX_Close</code></td><td class="fill">Fechamento do índice de volatilidade VIX</td><td class="fill">Pontos</td><td class="fill">Série VIX</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Disponibilidade na data de origem da previsão</h2>
+        <table>
+          <tr><th>Variável</th><th>Disponível no futuro?</th><th>Tratamento adotado</th></tr>
+          <tr>
+            <td class="fill">Dia da semana e mês</td>
+            <td><span class="flag ok">conhecida antecipadamente</span></td>
+            <td class="fill">Usar encoding cíclico de seno e cosseno</td>
+          </tr>
+          <tr>
+            <td class="fill"><code>Close</code>, <code>Volume</code>, NASDAQ e VIX</td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td class="fill">Usar apenas o valor do pregão anterior (<code>lag 1</code>)</td>
+          </tr>
+        </table>
+        <div class="fill">Para prever a abertura no pregão <code>t</code>, todos os preços, índices e volumes entram com defasagem de um pregão. As médias e os desvios móveis também terminam em <code>t-1</code>. Essa regra impede que informações ainda desconhecidas na origem da previsão sejam usadas no modelo.</div>
+      </div>
+
+      <div class="card">
+        <h2>Gráficos das variáveis externas</h2>
+        <div class="grid2">
+          <div class="placeholder-img report-figure"><img src="resultados/variavel_nasdaq.png" alt="Fechamento do NASDAQ Composite"></div>
+          <div class="placeholder-img report-figure"><img src="resultados/variavel_vix.png" alt="Fechamento do índice VIX"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 3 — LIMPEZA E EXPLORAÇÃO ============ -->
+    <section class="page" id="p3">
+      <h1>Limpeza e exploração</h1>
+      <div class="eyebrow">Qualidade dos dados antes da modelagem</div>
+
+      <div class="card">
+        <h2>Diagnóstico</h2>
+        <table>
+          <tr><th>Valores ausentes</th><td class="fill">A junção final possui 0 valores ausentes. O preenchimento para frente foi previsto para as séries externas, mas não havia lacunas após a junção.</td></tr>
+          <tr><th>Duplicidades</th><td class="fill">0 datas duplicadas após ordenação e deduplicação por data.</td></tr>
+          <tr><th>Irregularidades temporais</th><td class="fill">Os intervalos correspondem a fins de semana e feriados da bolsa. A unidade temporal foi mantida como pregão; não foram criados dias civis artificiais.</td></tr>
+          <tr><th>Valores atípicos (outliers)</th><td class="fill">O volume de 09/12/2019 aparece como 101.612 na fonte e foi corrigido para 16.687.400 somente na cópia de trabalho. Choques reais de preço e volatilidade foram preservados.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Decisões de limpeza e transformação</h2>
+        <div class="fill">O arquivo original não foi alterado. As datas foram convertidas, as três bases foram ordenadas e unidas pela data, e o erro conhecido de volume foi corrigido apenas em memória. O volume recebeu transformação <code>log1p</code> antes da defasagem. Não houve interpolação nem winsorização dos preços, pois movimentos extremos podem representar eventos reais do mercado.</div>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 4 — STL ============ -->
+    <section class="page" id="p4">
+      <h1>Decomposição STL</h1>
+      <div class="eyebrow">Tendência, sazonalidade e resíduo</div>
+
+      <div class="card">
+        <div class="placeholder-img report-figure"><img src="resultados/decomposicao_stl.png" alt="Decomposição STL do preço de abertura"></div>
+      </div>
+
+      <h3>Tendência</h3>
+      <div class="fill">A tendência estimada passa de aproximadamente US$ 40,64 para US$ 234,28. O movimento predominante é de alta, interrompido por correções — especialmente no início de 2020 — e seguido por recuperação.</div>
+
+      <h3>Sazonalidade</h3>
+      <div class="fill">Foi testado o período operacional de cinco pregões. A amplitude é pequena e instável; a força calculada é 0,000, portanto não há sazonalidade semanal relevante.</div>
+
+      <h3>Resíduo</h3>
+      <div class="fill">O resíduo concentra choques de mercado e períodos de maior volatilidade. Os picos ao redor de 2020 indicam movimentos que tendência e sazonalidade não explicam.</div>
+
+      <h3>Força da sazonalidade / tendência</h3>
+      <table>
+        <tr><th>Métrica</th><th>Valor</th><th>Interpretação</th></tr>
+        <tr><td>Força da tendência</td><td class="fill">0,998</td><td class="fill">Tendência muito forte</td></tr>
+        <tr><td>Força da sazonalidade</td><td class="fill">0,000</td><td class="fill">Ciclo semanal sem força relevante</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ PÁGINA 5 — FEATURE ENGINEERING ============ -->
+    <section class="page" id="p5">
+      <h1>Feature engineering</h1>
+      <div class="eyebrow">Construção das features usadas nos modelos baseados em tabela</div>
+
+      <div class="card">
+        <h2>Features construídas</h2>
+        <table>
+          <tr><th>Tipo</th><th>Descrição</th><th>Usada em quais modelos</th></tr>
+          <tr><td>Lags da variável-alvo</td><td class="fill"><code>Open</code> em 1, 2, 3, 5 e 10 pregões</td><td class="fill">Random Forest e XGBoost</td></tr>
+          <tr><td>Lags de variáveis externas</td><td class="fill"><code>Close</code>, log do volume, NASDAQ, retorno do NASDAQ e VIX em <code>t-1</code></td><td class="fill">Random Forest e XGBoost; retorno do NASDAQ e VIX também no SARIMAX</td></tr>
+          <tr><td>Estatísticas de janela móvel</td><td class="fill">Média e desvio-padrão da abertura em janelas de 5 e 21 pregões, encerradas em <code>t-1</code></td><td class="fill">Random Forest e XGBoost</td></tr>
+          <tr><td>Features de calendário</td><td class="fill">Dia da semana e mês</td><td class="fill">Random Forest, XGBoost e, parcialmente, SARIMAX</td></tr>
+          <tr><td>Encoding cíclico</td><td class="fill">Seno e cosseno do dia da semana e do mês</td><td class="fill">Random Forest e XGBoost; dia da semana no SARIMAX</td></tr>
+          <tr><td>Outras features criadas</td><td class="fill">Logaritmo do volume e retorno percentual do NASDAQ</td><td class="fill">Random Forest e XGBoost; retorno do NASDAQ no SARIMAX</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Tratamento de NA gerado pelos lags/janelas</h2>
+        <div class="fill">As primeiras 21 linhas foram descartadas como período de aquecimento da maior janela móvel. Restaram 1.490 observações completas para modelagem, sem imputar valores gerados artificialmente.</div>
+      </div>
+
+      <div class="fill">Random Forest e XGBoost receberam exatamente as mesmas 18 features. Essa igualdade mantém a comparação justa entre o modelo de referência baseado em árvores e o modelo de especialização.</div>
+    </section>
+
+    <!-- ============ PÁGINA 6 — WALK-FORWARD ============ -->
+    <section class="page" id="p6">
+      <h1>Protocolo walk-forward</h1>
+      <div class="eyebrow">Como a validação fora da amostra foi montada para esta base</div>
+
+      <table>
+        <tr><th>Janela inicial de treino</th><td class="fill">1.118 observações, de 01/05/2015 a 08/10/2019</td></tr>
+        <tr><th>Horizonte de previsão</th><td class="fill">h = 1 pregão</td></tr>
+        <tr><th>Passo de avanço</th><td class="fill">1 pregão por iteração, com janela expansiva</td></tr>
+        <tr><th>Nº de origens de previsão (folds)</th><td class="fill">372 origens fora da amostra</td></tr>
+        <tr><th>Datas de origem</th><td class="fill">Todos os pregões consecutivos do teste, de 09/10/2019 a 31/03/2021</td></tr>
+        <tr><th>Conjunto de teste final</th><td class="fill">25% finais da base preparada: 372 observações</td></tr>
+      </table>
+
+      <div class="fill">Confirmado: SARIMAX, Holt-Winters, Random Forest e XGBoost usam as mesmas 372 datas, o mesmo horizonte de um pregão e os valores reais entram no histórico somente após cada previsão.</div>
+    </section>
+
+    <!-- ============ PÁGINA 7 — MODELOS E HIPERPARÂMETROS ============ -->
+    <section class="page" id="p7">
+      <h1>Modelos e hiperparâmetros</h1>
+      <div class="eyebrow">Espaço de busca, procedimento e configuração final</div>
+
+      <div class="card">
+        <h2>SARIMAX</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td class="fill"><code>(1,1,0)</code>, <code>(0,1,1)</code> e <code>(1,1,1)</code>; parte sazonal <code>(0,0,0,5)</code> ou <code>(1,0,0,5)</code></td></tr>
+          <tr><th>Critério</th><td class="fill">Menor AIC no treino; BIC registrado como diagnóstico</td></tr>
+          <tr><th>Variáveis externas incluídas</th><td class="fill">Retorno do NASDAQ em <code>t-1</code>, VIX em <code>t-1</code> e seno/cosseno do dia da semana, padronizados apenas com o treino</td></tr>
+          <tr><th>Configuração final</th><td class="fill"><code>SARIMAX(1,1,1)×(1,0,0)<sub>5</sub></code>; AIC 3.247,51 e BIC 3.287,62</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Holt-Winters (referência univariada)</h2>
+        <table>
+          <tr><th>Tendência</th><td class="fill">Aditiva e amortecida</td></tr>
+          <tr><th>Sazonalidade</th><td class="fill">Nenhuma na configuração vencedora</td></tr>
+          <tr><th>Período sazonal</th><td class="fill">5 pregões foi avaliado na alternativa sazonal; não se aplica ao modelo final</td></tr>
+          <tr><th>Parâmetros de suavização</th><td class="fill">Estimados internamente por máxima verossimilhança em cada ajuste</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Random Forest</h2>
+        <table>
+          <tr><th>Espaço de busca</th><td class="fill"><code>n_estimators</code>: 100/200; <code>max_depth</code>: 3/6; <code>min_samples_split</code>: 2/5; <code>min_samples_leaf</code>: 1/5; <code>max_features</code>: sqrt</td></tr>
+          <tr><th>Método de otimização</th><td class="fill">Busca em grade, <code>TimeSeriesSplit</code> com 4 divisões e menor MAE</td></tr>
+          <tr><th>Configuração final</th><td class="fill"><code>n_estimators=100</code>, <code>max_depth=6</code>, <code>min_samples_split=5</code>, <code>min_samples_leaf=1</code>, <code>max_features=sqrt</code></td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Modelo de especialização — XGBoost</h2>
+        <table>
+          <tr><th>Principais hiperparâmetros</th><td class="fill"><code>n_estimators</code>, <code>max_depth</code>, <code>learning_rate</code>, <code>subsample</code> e <code>colsample_bytree</code></td></tr>
+          <tr><th>Intervalos testados</th><td class="fill">Árvores: 100/200; profundidade: 3/5; taxa: 0,03/0,10; amostragem de linhas e colunas: 0,8</td></tr>
+          <tr><th>Método de busca</th><td class="fill">Busca em grade, <code>TimeSeriesSplit</code> com 4 divisões e menor MAE</td></tr>
+          <tr><th>Configuração final</th><td class="fill"><code>n_estimators=100</code>, <code>max_depth=3</code>, <code>learning_rate=0,10</code>, <code>subsample=0,8</code>, <code>colsample_bytree=0,8</code></td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ PÁGINA 8 — RESULTADOS MAE ============ -->
+    <section class="page" id="p8">
+      <h1>Resultados comparativos (MAE)</h1>
+      <div class="eyebrow">Erro fora da amostra do protocolo walk-forward, apenas para esta base</div>
+
+      <table>
+        <tr><th>Modelo</th><th>MAE</th><th>Ranking</th></tr>
+        <tr><td>XGBoost</td><td class="fill">2,639 USD</td><td class="fill">1º</td></tr>
+        <tr><td>SARIMAX</td><td class="fill">2,647 USD</td><td class="fill">2º</td></tr>
+        <tr><td>Holt-Winters</td><td class="fill">2,782 USD</td><td class="fill">3º</td></tr>
+        <tr><td>Random Forest</td><td class="fill">3,134 USD</td><td class="fill">4º</td></tr>
+      </table>
+
+      <div class="placeholder-img report-figure"><img src="resultados/previsoes_modelos.png" alt="Previsões walk-forward comparadas ao valor real"></div>
+
+      <div class="fill">O XGBoost venceu por margem pequena de 0,009 USD sobre o SARIMAX. A série tem tendência forte, sazonalidade semanal praticamente nula e relações não lineares com seu próprio histórico. O XGBoost aproveitou principalmente médias e lags recentes da abertura. A proximidade do SARIMAX mostra, porém, que a diferença não deve ser interpretada como superioridade ampla.</div>
+    </section>
+
+    <!-- ============ PÁGINA 9 — RESÍDUOS ============ -->
+    <section class="page" id="p9">
+      <h1>Análise dos resíduos</h1>
+      <div class="eyebrow">Erros fora da amostra, por modelo</div>
+
+      <div class="grid2">
+        <div class="placeholder-img report-figure"><img src="resultados/residuos_modelos.png" alt="Resíduos fora da amostra ao longo do tempo"></div>
+        <div class="placeholder-img report-figure"><img src="resultados/acf_residuos.png" alt="Autocorrelação dos resíduos"></div>
+      </div>
+
+      <table>
+        <tr><th>Modelo</th><th>Estatística Ljung-Box</th><th>p-valor</th><th>Interpretação</th></tr>
+        <tr><td>SARIMAX</td><td class="fill">31,056</td><td class="fill">0,0545</td><td class="fill">Sem evidência de autocorrelação a 5%</td></tr>
+        <tr><td>Holt-Winters</td><td class="fill">23,309</td><td class="fill">0,2739</td><td class="fill">Sem evidência de autocorrelação a 5%</td></tr>
+        <tr><td>Random Forest</td><td class="fill">216,833</td><td class="fill">5,11 × 10<sup>−35</sup></td><td class="fill">Autocorrelação residual</td></tr>
+        <tr><td>XGBoost</td><td class="fill">52,233</td><td class="fill">0,000105</td><td class="fill">Autocorrelação residual</td></tr>
+      </table>
+
+      <div class="fill">O erro médio é positivo em todos os modelos, indicando subestimação média: 0,307 no SARIMAX, 0,295 no Holt-Winters, 1,145 no Random Forest e 0,916 no XGBoost. SARIMAX e Holt-Winters não apresentam autocorrelação significativa a 5%; Random Forest e XGBoost ainda deixam estrutura temporal nos resíduos. Os maiores erros se concentram nos períodos de alta volatilidade.</div>
+    </section>
+
+    <!-- ============ PÁGINA 10 — IMPORTÂNCIA DAS FEATURES ============ -->
+    <section class="page" id="p10">
+      <h1>Importância das features</h1>
+      <div class="eyebrow">Random Forest e modelo de especialização (SARIMAX via coeficientes)</div>
+
+      <div class="grid2">
+        <div class="placeholder-img report-figure"><img src="resultados/importancia_random_forest.png" alt="Importância das features no Random Forest"></div>
+        <div class="placeholder-img report-figure"><img src="resultados/importancia_xgboost.png" alt="Importância das features no XGBoost"></div>
+      </div>
+
+      <div class="card">
+        <h2>SARIMAX — coeficientes das variáveis externas</h2>
+        <table>
+          <tr><th>Variável</th><th>Coeficiente</th><th>Sinal</th><th>Significância</th></tr>
+          <tr><td class="fill">Retorno do NASDAQ em t−1</td><td class="fill">0,249</td><td class="fill">Positivo</td><td class="fill">Significativo (p &lt; 0,001)</td></tr>
+          <tr><td class="fill">VIX em t−1</td><td class="fill">−0,938</td><td class="fill">Negativo</td><td class="fill">Significativo (p &lt; 0,001)</td></tr>
+          <tr><td class="fill">Dia da semana — seno</td><td class="fill">−0,011</td><td class="fill">Negativo</td><td class="fill">Não significativo (p = 0,640)</td></tr>
+          <tr><td class="fill">Dia da semana — cosseno</td><td class="fill">0,018</td><td class="fill">Positivo</td><td class="fill">Não significativo (p = 0,448)</td></tr>
+        </table>
+      </div>
+
+      <div class="fill">No XGBoost, as três maiores importâncias são média móvel de 5 pregões, abertura em t−1 e abertura em t−3. NASDAQ e VIX têm participação pequena na importância nativa das árvores, enquanto seus coeficientes são significativos no SARIMAX. Em ambos os casos, essas variáveis entram apenas em t−1 para evitar vazamento; importância não implica causalidade.</div>
+    </section>
+
+    <!-- ============ PÁGINA 11 — CONCLUSÃO DA BASE ============ -->
+    <section class="page" id="p11">
+      <h1>Conclusão desta base</h1>
+      <div class="fill">
+        O XGBoost foi o melhor modelo desta base, com MAE de 2,639 USD, seguido muito de perto pelo SARIMAX, com 2,647 USD. O resultado é coerente com a forte tendência e com a relevância do histórico recente da própria ação. A sazonalidade semanal é desprezível, e o modelo de Holt-Winters vencedor não utilizou componente sazonal. As principais limitações são a mudança de regimes de mercado, o horizonte restrito a um pregão, o uso de externas apenas defasadas e a autocorrelação ainda presente nos resíduos do XGBoost. Recomenda-se reestimar os modelos periodicamente e monitorar MAE, viés e Ljung-Box.
+      </div>
+      <div class="fill">
+        <strong>Responsabilidade:</strong> Gabriel Bento realizou a análise da base Microsoft e a especialização em XGBoost. A comparação consolidada entre as cinco bases permanece no relatório coletivo do grupo. O notebook <code>main.ipynb</code> e os arquivos da pasta <code>resultados</code> preservam os dados, configurações, previsões, métricas, resíduos, importâncias e coeficientes utilizados neste relatório.
+      </div>
+    </section>
+
+    <div class="pager">
+      <button id="prevBtn">← Anterior</button>
+      <button id="nextBtn">Próxima →</button>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const pages = Array.from(document.querySelectorAll('.page'));
+  const navBtns = Array.from(document.querySelectorAll('.nav-btn'));
+  let current = 0;
+
+  function showPage(idx){
+    pages.forEach((p,i)=> p.classList.toggle('active', i===idx));
+    navBtns.forEach((b,i)=> b.classList.toggle('active', i===idx));
+    current = idx;
+    document.getElementById('prevBtn').disabled = idx === 0;
+    document.getElementById('nextBtn').disabled = idx === pages.length-1;
+    window.scrollTo(0,0);
+  }
+
+  navBtns.forEach((btn, i) => btn.addEventListener('click', () => showPage(i)));
+  document.getElementById('prevBtn').addEventListener('click', () => showPage(Math.max(0, current-1)));
+  document.getElementById('nextBtn').addEventListener('click', () => showPage(Math.min(pages.length-1, current+1)));
+  showPage(0);
+</script>
+</body>
+</html>
