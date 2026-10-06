@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Base 01 — Nome da Base | Séries Temporais</title>
+<title>Base 01 — Temperatura | Séries Temporais</title>
 <style>
   :root{
     --ink:#1b1f23;
@@ -133,6 +133,10 @@
 
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 
+  figure.chart{ margin:10px 0 20px; }
+  figure.chart img{ display:block; width:100%; height:auto; border:1px solid var(--line); border-radius:4px; background:#fff; }
+  figure.chart figcaption{ color:var(--muted); font-size:.8rem; margin-top:6px; }
+
   .pager{
     display:flex; justify-content:space-between; margin-top:40px;
     border-top:1px solid var(--line); padding-top:16px;
@@ -195,7 +199,7 @@
   <nav class="pages">
     <div class="brand">
       Base 01 <br>
-      <small>Nome da base — Grupo XX</small>
+      <small>Temperatura — Grupo 01</small>
     </div>
     <button class="nav-btn active" data-page="p1">1. Visão geral da base</button>
     <button class="nav-btn" data-page="p2">2. Variáveis externas</button>
@@ -214,27 +218,30 @@
 
     <!-- ============ PÁGINA 1 — VISÃO GERAL DA BASE ============ -->
     <section class="page active" id="p1">
-      <h1>Base 01 — Nome da base</h1>
+      <h1>Base 01 — Daily Climate time series data (Delhi)</h1>
       <div class="eyebrow">Fonte, período e características gerais da série-alvo</div>
 
       <div class="card">
         <h2>Ficha da base</h2>
         <table>
-          <tr><th>Fonte dos dados</th><td class="fill">link/instituição de onde veio a base</td></tr>
-          <tr><th>Variável-alvo</th><td class="fill">nome e o que ela representa</td></tr>
-          <tr><th>Unidade</th><td class="fill">ex: R$, unidades, °C, %</td></tr>
-          <tr><th>Frequência</th><td class="fill">diária / semanal / mensal / etc.</td></tr>
-          <tr><th>Período coberto</th><td class="fill">dd/mm/aaaa a dd/mm/aaaa</td></tr>
-          <tr><th>Nº de observações</th><td class="fill">total de pontos na série</td></tr>
+          <tr><th>Fonte dos dados</th><td>Kaggle — <em>"Daily Climate time series data"</em>, por sumanthvrao. Dados originalmente coletados via API do Weather Underground. Licença CC0 (domínio público). <a href="https://www.kaggle.com/datasets/sumanthvrao/daily-climate-time-series-data" target="_blank" rel="noopener">kaggle.com/datasets/sumanthvrao/daily-climate-time-series-data</a></td></tr>
+          <tr><th>Variável-alvo</th><td><code>meantemp</code> — temperatura média diária da cidade de Delhi, Índia, calculada a partir de leituras em intervalos de 3 horas ao longo do dia.</td></tr>
+          <tr><th>Unidade</th><td>°C (graus Celsius)</td></tr>
+          <tr><th>Frequência</th><td>Diária</td></tr>
+          <tr><th>Período coberto</th><td>01/01/2013 a 24/04/2017 (dividido pelo autor original em arquivo de treino, 01/01/2013 a 01/01/2017, e arquivo de teste, 01/01/2017 a 24/04/2017)</td></tr>
+          <tr><th>Nº de observações</th><td>1.462 observações no arquivo de treino + 114 no arquivo de teste ≈ 1.576 registros diários no total</td></tr>
           <tr><th>Horizonte de previsão definido</th><td class="fill">ex: h = 12 períodos à frente</td></tr>
-          <tr><th>Justificativa da escolha da base</th><td class="fill">por que essa base é adequada (sazonalidade, tamanho, relevância)</td></tr>
+          <tr><th>Justificativa da escolha da base</th><td>Série diária de médio/longo prazo (~4 anos), com sazonalidade anual bem definida na temperatura, umidade, velocidade do vento e pressão atmosférica — variáveis climáticas com forte inter-relação, adequadas para testar modelos univariados (SARIMAX, Holt-Winters) e multivariados (Random Forest com variáveis externas). Dataset público (CC0), amplamente usado como benchmark acadêmico para previsão de séries temporais climáticas.</td></tr>
         </table>
       </div>
 
       <div class="card">
         <h2>Gráfico da série-alvo</h2>
-        <div class="placeholder-img">gráfico da série-alvo ao longo do tempo</div>
-        <div class="fill">Descreva o que se observa: nível, tendência aparente, ciclos, quebras estruturais, mudanças de regime.</div>
+        <figure class="chart">
+          <img src="img/serie_alvo.png" alt="Temperatura média diária de Delhi entre 2013 e 2016, com ciclo anual bem marcado">
+          <figcaption>Temperatura média diária (°C) de 01/01/2013 a 31/12/2016, com média móvel de 30 dias.</figcaption>
+        </figure>
+        <p>A série tem nível médio de <strong>25,5 °C</strong> e varia entre 6 °C (jan/2013) e 38,7 °C (mai/2013). O que domina é um <strong>ciclo anual</strong> muito regular: o mínimo ocorre em janeiro (média ≈ 13 °C) e o máximo em maio–junho (≈ 33–34 °C). De julho a setembro há um patamar em torno de 30–31 °C, associado à monção, antes da queda para o inverno. A forma do ciclo se repete nos quatro anos, sem quebras estruturais ou mudanças de regime visíveis. A tendência é discreta: as médias anuais ficam em ~25 °C de 2013 a 2015 e sobem para 27,1 °C em 2016, um ano excepcionalmente quente. Com apenas quatro ciclos, não é possível afirmar que isso seja uma tendência de longo prazo.</p>
       </div>
     </section>
 
@@ -247,9 +254,11 @@
         <h2>Dicionário de variáveis</h2>
         <table>
           <tr><th>Variável</th><th>Descrição</th><th>Unidade</th><th>Fonte</th></tr>
-          <tr><td class="fill">nome</td><td class="fill">o que representa</td><td class="fill">-</td><td class="fill">-</td></tr>
-          <tr><td class="fill">nome</td><td class="fill">o que representa</td><td class="fill">-</td><td class="fill">-</td></tr>
+          <tr><td><code>humidity</code></td><td>Umidade relativa média diária do ar</td><td>%</td><td>Mesmo dataset (Kaggle / Weather Underground)</td></tr>
+          <tr><td><code>wind_speed</code></td><td>Velocidade média diária do vento</td><td>km/h</td><td>Mesmo dataset (Kaggle / Weather Underground)</td></tr>
+          <tr><td><code>meanpressure</code> <span class="flag leak">excluída</span></td><td>Pressão atmosférica média diária</td><td>hPa</td><td>Mesmo dataset. Excluída por ter valores fisicamente impossíveis (ver página 3).</td></tr>
         </table>
+        <p>Correlação com <code>meantemp</code> no treino: umidade <strong>−0,57</strong> (dias mais quentes são mais secos, exceto na monção) e vento <strong>+0,31</strong>.</p>
       </div>
 
       <div class="card">
@@ -257,24 +266,36 @@
         <table>
           <tr><th>Variável</th><th>Disponível no futuro?</th><th>Tratamento adotado</th></tr>
           <tr>
-            <td class="fill">nome</td>
-            <td><span class="flag ok">conhecida antecipadamente</span></td>
-            <td class="fill">usar valor real</td>
+            <td><code>humidity</code></td>
+            <td><span class="flag leak">indisponível — vazamento</span></td>
+            <td class="fill">proposta: usar apenas valores defasados (lag ≥ h) — confirmar quando o horizonte h for definido</td>
           </tr>
           <tr>
-            <td class="fill">nome</td>
+            <td><code>wind_speed</code></td>
             <td><span class="flag leak">indisponível — vazamento</span></td>
-            <td class="fill">defasar (lag) / usar previsão disponível na origem / excluir — justifique</td>
+            <td class="fill">proposta: usar apenas valores defasados (lag ≥ h) — confirmar quando o horizonte h for definido</td>
+          </tr>
+          <tr>
+            <td>Calendário (dia do ano, mês)</td>
+            <td><span class="flag ok">conhecida antecipadamente</span></td>
+            <td>Usar o valor real, por exemplo como termos de Fourier (seno/cosseno do dia do ano) para representar o ciclo anual</td>
           </tr>
         </table>
-        <div class="fill">Para cada variável marcada como indisponível, explique exatamente qual substituto foi usado e por quê (lag de quantos períodos, forecast externo, exclusão, etc.).</div>
+        <p>Umidade e vento são medidos no mesmo dia que a temperatura. No momento da previsão, os valores futuros ainda não existem, então usar o valor real do dia previsto seria vazamento de informação.</p>
+        <div class="fill">Definir o lag exato de cada variável depois de fixar o horizonte de previsão, ou justificar o uso de uma previsão externa.</div>
       </div>
 
       <div class="card">
         <h2>Gráficos das variáveis externas</h2>
         <div class="grid2">
-          <div class="placeholder-img">variável externa 1</div>
-          <div class="placeholder-img">variável externa 2</div>
+          <figure class="chart">
+            <img src="img/humidity.png" alt="Umidade relativa diária em Delhi, 2013 a 2016">
+            <figcaption>Umidade relativa (%): máxima no inverno e na monção, mínima em abril–junho.</figcaption>
+          </figure>
+          <figure class="chart">
+            <img src="img/wind_speed.png" alt="Velocidade do vento diária em Delhi, 2013 a 2016">
+            <figcaption>Velocidade do vento (km/h): mais alta no verão, com picos isolados de até 42 km/h.</figcaption>
+          </figure>
         </div>
       </div>
     </section>
@@ -287,16 +308,23 @@
       <div class="card">
         <h2>Diagnóstico</h2>
         <table>
-          <tr><th>Valores ausentes</th><td class="fill">quantidade, onde ocorrem, como foram tratados</td></tr>
-          <tr><th>Duplicidades</th><td class="fill">existem? como foram resolvidas</td></tr>
-          <tr><th>Irregularidades temporais</th><td class="fill">datas faltantes, frequência inconsistente, como foi regularizada</td></tr>
-          <tr><th>Valores atípicos (outliers)</th><td class="fill">método de detecção e decisão (manter/remover/tratar)</td></tr>
+          <tr><th>Valores ausentes</th><td>Nenhum valor ausente (NaN) em nenhuma coluna. Porém <code>wind_speed</code> tem 26 dias com valor exatamente 0, o que pode indicar falha de registro.</td></tr>
+          <tr><th>Duplicidades</th><td>Nenhuma linha ou data duplicada.</td></tr>
+          <tr><th>Irregularidades temporais</th><td>Frequência diária contínua, sem datas faltantes entre 01/01/2013 e 01/01/2017 (1.462 dias). A última linha (01/01/2017) é um registro incompleto (umidade 100%, vento 0, temperatura 10 °C) e é a mesma data do início do arquivo de teste.</td></tr>
+          <tr><th>Valores atípicos (outliers)</th><td>Método: regra do IQR (fora de Q1 − 1,5·IQR ou Q3 + 1,5·IQR).<br>
+            • <code>meantemp</code>: 0 outliers.<br>
+            • <code>humidity</code>: 2 (valores baixos, 13–16%). São plausíveis no pré-monção e foram mantidos.<br>
+            • <code>wind_speed</code>: 30 (entre 18 e 42 km/h). São rajadas plausíveis e foram mantidas.<br>
+            • <code>meanpressure</code>: 9 valores fora do IQR, quase todos fisicamente impossíveis (−3, 12, 310, 634, 938, 946, 1.350, 1.353 e 7.679 hPa). A coluna foi excluída.</td></tr>
         </table>
       </div>
 
       <div class="card">
         <h2>Decisões de limpeza e transformação</h2>
-        <div class="fill">Descreva em texto corrido as decisões tomadas (ex: interpolação, winsorização, log-transform) e a justificativa de cada uma.</div>
+        <p>A série-alvo não precisou de limpeza: não há ausentes, duplicatas ou lacunas de datas, e nenhum valor fica fora do IQR. Foram tomadas três decisões.</p>
+        <p><strong>1. Exclusão de <code>meanpressure</code>.</strong> A coluna tem valores impossíveis para a pressão ao nível do mar, que normalmente fica entre ~990 e 1.030 hPa. Alguns chegam a ser negativos ou maiores que 7.000 hPa, o que indica erro de coleta. Como a correlação física com a temperatura já é parcialmente captada pela umidade e pelo vento, optou-se por excluir a variável em vez de tentar corrigi-la.</p>
+        <p><strong>2. Remoção da última linha (01/01/2017).</strong> O registro é incompleto e coincide com a primeira data do arquivo de teste. Mantê-lo criaria um ponto artificial no fim do treino e uma sobreposição entre treino e teste. O treino ficou com 1.461 observações (01/01/2013 a 31/12/2016).</p>
+        <p><strong>3. Sem transformação da variável-alvo.</strong> A temperatura é aditiva e a amplitude do ciclo anual é estável entre os anos, então não foi aplicado log nem Box-Cox. Os outliers de umidade e vento foram mantidos por serem fisicamente plausíveis.</p>
       </div>
     </section>
 
@@ -306,24 +334,46 @@
       <div class="eyebrow">Tendência, sazonalidade e resíduo</div>
 
       <div class="card">
-        <div class="placeholder-img">decomposição STL: observado / tendência / sazonal / resíduo</div>
+        <figure class="chart">
+          <img src="img/stl.png" alt="Decomposição STL da temperatura em observado, tendência, sazonal e resíduo">
+          <figcaption>STL com <code>period = 365</code> (série diária, ciclo anual), <code>robust = True</code> e <code>seasonal_deg = 0</code>.</figcaption>
+        </figure>
+        <p><strong>Escolha dos parâmetros.</strong> O período é 365 porque a série é diária e o ciclo é anual. Com apenas 4 anos, cada subsérie sazonal (um mesmo dia do ano em anos diferentes) tem só 4 pontos. Com o ajuste linear padrão, a componente sazonal acabava absorvendo quase todo o ruído do primeiro e do último ano. O ajuste localmente constante (<code>seasonal_deg = 0</code>) deixa o resíduo com variância parecida em todos os anos (desvio-padrão entre 1,7 e 2,1 °C). A opção <code>robust = True</code> reduz a influência de dias atípicos.</p>
       </div>
 
       <h3>Tendência</h3>
-      <div class="fill">Interpretação visual: períodos de crescimento, queda, estabilidade e mudanças de direção.</div>
+      <table>
+        <tr><th>Período</th><th>Comportamento</th><th>Nível da tendência</th><th>Inclinação média</th></tr>
+        <tr><td>jan/2013 – dez/2013</td><td>Queda leve (quase estável)</td><td>25,0 → 24,8 °C (−0,2 °C)</td><td>−0,02 °C/mês</td></tr>
+        <tr><td>dez/2013</td><td>Mudança de direção: mínimo de 24,77 °C em 15/12/2013</td><td>—</td><td>—</td></tr>
+        <tr><td>dez/2013 – mai/2015</td><td>Crescimento lento (quase estável)</td><td>24,8 → 25,3 °C (+0,5 °C)</td><td>+0,03 °C/mês</td></tr>
+        <tr><td>jun/2015 – dez/2016</td><td>Crescimento forte e contínuo</td><td>25,3 → 27,7 °C (+2,5 °C)</td><td>+0,13 °C/mês</td></tr>
+      </table>
+      <p>A tendência só troca de direção uma vez, no fim de 2013: cai levemente ao longo de 2013 e sobe a partir daí. Em meados de 2015 a subida acelera (a inclinação fica cerca de quatro vezes maior), mas continua positiva. Ao todo, a variação é de apenas ~3 °C em quatro anos, pequena perto da amplitude sazonal (~22 °C). A subida forte coincide com 2016, um ano excepcionalmente quente, e com só quatro ciclos não dá para distinguir uma tendência de longo prazo de uma variação entre anos.</p>
 
       <h3>Sazonalidade</h3>
-      <div class="fill">Padrão sazonal identificado (período, amplitude, regularidade ao longo do tempo).</div>
+      <p>O ciclo é anual (período de 365 dias), grande e muito regular: suavizada em 30 dias, a componente sazonal vai de ≈ −12,6 °C (início de janeiro) a ≈ +9,5 °C (início de junho), uma amplitude de aproximadamente 22 °C (nos valores diários os extremos chegam a −15,4 e +13,3 °C). O formato é assimétrico e se repete nos quatro anos. A temperatura sobe gradualmente de janeiro a maio, atinge o pico antes da monção, cai um pouco e forma um patamar de julho a setembro, e desce rápido de outubro a dezembro. Parte do ruído diário continua aparecendo na componente sazonal, porque há poucos ciclos para suavizá-la.</p>
 
       <h3>Resíduo</h3>
-      <div class="fill">O que sobra após remover tendência e sazonalidade; há padrões remanescentes?</div>
+      <p>O resíduo fica centrado em zero, com desvio-padrão de ~1,9 °C e sem padrão sazonal visível. Os testes ADF (p ≈ 1e-18) e KPSS (estatística 0,07 &lt; 0,347) concordam que ele é estacionário. Existem picos isolados de −9 a +8 °C, provavelmente frentes frias, ondas de calor ou dias de chuva forte. Cerca de 36 dias (2,5%) passam de 3 desvios-padrão.</p>
 
       <h3>Força da sazonalidade / tendência</h3>
+      <p>Calculadas a partir dos componentes do STL: F<sub>S</sub> = max(0, 1 − Var(R<sub>t</sub>) / Var(S<sub>t</sub> + R<sub>t</sub>)) e F<sub>T</sub> = max(0, 1 − Var(R<sub>t</sub>) / Var(T<sub>t</sub> + R<sub>t</sub>)). Valores próximos de 1 indicam componente forte; próximos de 0, fraco.</p>
       <table>
         <tr><th>Métrica</th><th>Valor</th><th>Interpretação</th></tr>
-        <tr><td>Força da tendência</td><td class="fill">0.xx</td><td class="fill">-</td></tr>
-        <tr><td>Força da sazonalidade</td><td class="fill">0.xx</td><td class="fill">-</td></tr>
+        <tr><td>Força da tendência</td><td>0,19</td><td>Fraca: a tendência explica pouco da variação além do resíduo.</td></tr>
+        <tr><td>Força da sazonalidade</td><td>0,93</td><td>Muito forte: o ciclo anual é o principal componente da série e deve ser modelado explicitamente.</td></tr>
       </table>
+
+      <div class="card">
+        <h2>Estacionariedade e ordem de diferenciação</h2>
+        <table>
+          <tr><th>Série</th><th>ADF (p-valor)</th><th>KPSS (estatística)</th><th>Conclusão</th></tr>
+          <tr><td>Original</td><td>0,22 — não rejeita H0</td><td>0,19 &lt; 0,347 — não rejeita H0</td><td>Os testes discordam. A ACF tem forma senoidal (−0,64 no lag 182, +0,68 no lag 365): a persistência vem da sazonalidade determinística, não de uma raiz unitária clara.</td></tr>
+          <tr><td>1ª diferença</td><td>≈ 2e-29 — rejeita H0</td><td>0,15 &lt; 0,347 — não rejeita H0</td><td>Estacionária (d = 1).</td></tr>
+        </table>
+        <p>A 1ª diferença deixa a série estacionária, mas não remove a sazonalidade anual. A diferenciação sazonal (lag 365) custaria um dos quatro anos de dados, por isso a proposta é tratar o ciclo com termos de Fourier ou dessazonalizar pelo STL. Na série diferenciada, a ACF é significativa nos lags 1 a 3 (−0,16; −0,08; −0,13) e a PACF decai aos poucos, o que indica um componente MA. Os candidatos são ARIMA(0,1,1), (0,1,3), (1,1,1) e (3,1,0).</p>
+      </div>
     </section>
 
     <!-- ============ PÁGINA 5 — FEATURE ENGINEERING ============ -->
