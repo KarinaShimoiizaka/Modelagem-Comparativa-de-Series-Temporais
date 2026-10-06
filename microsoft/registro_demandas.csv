@@ -1,0 +1,10 @@
+﻿Data,Integrante,Demanda Realizada,Entrega ou Evidência,Carga de Trabalho,Complexidade,Status
+22/09/2026,Gabriel Bento,Nasdaq -> Análise da base,Código,Baixa,Baixa,Concluída
+22/09/2026,Gabriel Bento,Nasdaq -> Escolha do target e variáveis externas,Código,Baixa,Média,Concluída
+22/09/2026,Gabriel Bento,Nasdaq -> Exploração e visualização da base,Código,Média,Baixa,Concluída
+22/09/2026,Gabriel Bento,Nasdaq -> Validação do outlier de volume,Código,Baixa,Média,Concluída
+23/09/2026,Gabriel Bento,"Nasdaq -> STL, features e modelagem",Código,Alta,Alta,Concluída
+29/09/2026,Gabriel Bento,Nasdaq -> Ajuste do target para Open,Código,Média,Média,Concluída
+29/09/2026,Gabriel Bento,Nasdaq -> Consolidação no notebook e XGBoost,Código,Alta,Alta,Concluída
+02/10/2026,Gabriel Bento,Nasdaq -> Simplificação conforme estrutura do grupo,Código,Média,Média,Concluída
+03/10/2026,Gabriel Bento,"Nasdaq -> Auditoria final, resíduos e relatório",Código e relatório,Alta,Alta,Concluída
