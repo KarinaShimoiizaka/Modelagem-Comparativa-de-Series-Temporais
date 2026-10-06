@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jogos mensais da Seleção Brasileira | Séries Temporais</title>
+<style>
+  :root {
+    --ink: #1b1f23;
+    --paper: #fbfaf7;
+    --panel: #fff;
+    --line: #dcd7cc;
+    --muted: #6b6558;
+    --accent: #2f5d50;
+    --accent-soft: #e4ede9;
+    --warn: #9a4b3a;
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--font-body); }
+  .app { display: flex; min-height: 100vh; }
+  nav { width: 250px; flex: 0 0 250px; background: var(--panel); border-right: 1px solid var(--line); padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  nav .brand { padding: 0 22px 18px; border-bottom: 1px solid var(--line); margin-bottom: 8px; font: 1.05rem var(--font-display); }
+  nav small { display: block; margin-top: 5px; color: var(--muted); font: .78rem var(--font-body); }
+  nav button { display: block; width: 100%; padding: 9px 20px; border: 0; border-left: 3px solid transparent; text-align: left; color: var(--muted); background: none; font: inherit; cursor: pointer; }
+  nav button:hover, nav button.active { color: var(--accent); background: var(--accent-soft); }
+  nav button.active { border-left-color: var(--accent); font-weight: 600; }
+  main { flex: 1; max-width: 1050px; padding: 42px 52px 72px; }
+  section.page { display: none; }
+  section.page.active { display: block; }
+  h1, h2 { font-family: var(--font-display); }
+  h1 { margin: 0 0 8px; font-size: 2rem; }
+  h2 { margin: 0 0 14px; color: var(--accent); font-size: 1.25rem; }
+  h3 { margin: 24px 0 8px; font-size: 1rem; }
+  .eyebrow { margin-bottom: 22px; color: var(--muted); }
+  .card { margin-bottom: 16px; padding: 18px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  .note { padding: 12px 14px; background: var(--accent-soft); border-left: 3px solid var(--accent); }
+  .warning { padding: 12px 14px; background: #f4e3de; border-left: 3px solid var(--warn); }
+  table { width: 100%; margin: 10px 0 16px; border-collapse: collapse; font-size: .9rem; }
+  th, td { padding: 8px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); font-weight: 600; }
+  .pager { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .pager button { padding: 9px 15px; border: 0; border-radius: 4px; background: var(--accent); color: white; cursor: pointer; }
+  .pager button:disabled { opacity: .35; cursor: default; }
+  @media (max-width: 800px) {
+    .app { display: block; }
+    nav { position: relative; width: 100%; height: auto; }
+    main { padding: 28px 18px 55px; }
+  }
+  @media print {
+    nav, .pager { display: none !important; }
+    .app { display: block; }
+    main { max-width: none; padding: 0; }
+    section.page { display: block !important; break-before: page; }
+    section.page:first-of-type { break-before: auto; }
+    .card, table { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav aria-label="Etapas da análise">
+    <div class="brand">Jogos da Seleção Brasileira<small>Base mensal, 1914–2022 · resultados do notebook · Patrick Serafim de Souza</small></div>
+    <button class="nav-btn active" data-page="p1">1. Visão geral da base</button>
+    <button class="nav-btn" data-page="p2">2. Variáveis externas</button>
+    <button class="nav-btn" data-page="p3">3. Limpeza e exploração</button>
+    <button class="nav-btn" data-page="p4">4. Decomposição STL</button>
+    <button class="nav-btn" data-page="p5">5. Feature engineering</button>
+    <button class="nav-btn" data-page="p6">6. Walk-forward</button>
+    <button class="nav-btn" data-page="p7">7. Modelos e hiperparâmetros</button>
+    <button class="nav-btn" data-page="p8">8. Resultados (MAE)</button>
+    <button class="nav-btn" data-page="p9">9. Resíduos e Ljung-Box</button>
+    <button class="nav-btn" data-page="p10">10. Importância das features</button>
+    <button class="nav-btn" data-page="p11">11. Conclusão</button>
+  </nav>
+  <main>
+    <section class="page active" id="p1">
+      <h1>Base — número mensal de jogos da Seleção Brasileira</h1>
+      <div class="eyebrow">Resumo reproduzido da execução atual de brazil/notebook.ipynb</div>
+      <div class="card">
+        <h2>Ficha da base</h2>
+        <table>
+          <tr><th>Fonte</th><td>brazil/dados/brazil.csv — histórico de partidas da Seleção Brasileira</td></tr>
+          <tr><th>Variável-alvo</th><td>jogos_mes — partidas disputadas por mês</td></tr>
+          <tr><th>Unidade e frequência</th><td>jogos por mês; mensal, início do mês</td></tr>
+          <tr><th>Período</th><td>setembro de 1914 a dezembro de 2022</td></tr>
+          <tr><th>Registros brutos</th><td>1.034 partidas</td></tr>
+          <tr><th>Série modelada</th><td>1.300 meses; 859 meses sem partida foram representados por zero</td></tr>
+          <tr><th>Média e mediana</th><td>0,795 jogo por mês; mediana 0</td></tr>
+          <tr><th>Período comum da comparação</th><td>janeiro de 1993 a dezembro de 2022; 360 meses com cobertura do ranking FIFA</td></tr>
+          <tr><th>Protocolo comparativo</th><td>15 origens walk-forward × 4 meses à frente = 60 previsões por modelo</td></tr>
+        </table>
+        <div class="note">A série-alvo é a contagem de partidas, não gols marcados ou sofridos.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p2">
+      <h1>Variáveis externas</h1>
+      <div class="eyebrow">Regressores usados nos modelos com exógenas e disponibilidade na origem da previsão</div>
+      <div class="card">
+        <h2>Calendário e ranking FIFA</h2>
+        <table>
+          <tr><th>Variável</th><th>Descrição</th><th>Disponível na origem?</th><th>VIF</th></tr>
+          <tr><td>sin_mes</td><td>Componente seno do mês do calendário</td><td>Sim; determinística</td><td>1,0</td></tr>
+          <tr><td>cos_mes</td><td>Componente cosseno do mês do calendário</td><td>Sim; determinística</td><td>1,0</td></tr>
+          <tr><td>rank_fifa_brasil</td><td>Posição do Brasil (1 = melhor), última publicação anterior ao mês-alvo</td><td>Sim; valor conhecido antes do mês previsto</td><td>4,394</td></tr>
+          <tr><td>pontos_fifa_relativos</td><td>Pontos do Brasil divididos pela pontuação máxima da mesma publicação</td><td>Sim; valor conhecido antes do mês previsto</td><td>4,392</td></tr>
+        </table>
+        <p>Fonte utilizada: <a href="https://www.kaggle.com/datasets/cashncarry/fifaworldranking">FIFA World Ranking 1992–2024 (Kaggle)</a>, arquivo local <code>fifa_ranking-2024-06-20.csv</code>. Os outros dois CSVs na pasta são snapshots anteriores do mesmo histórico; não são variáveis independentes. A pontuação foi dividida pelo máximo da respectiva publicação para reduzir a quebra de escala do sistema de pontos.</p>
+        <div class="warning">Para previsões de vários meses, o ranking é congelado no último valor disponível na origem. Nenhuma publicação posterior à origem entra no horizonte previsto. Como a primeira publicação é de 31/12/1992, os modelos comparados usam o período comum desde jan/1993.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p3">
+      <h1>Limpeza e exploração</h1>
+      <div class="eyebrow">Diagnósticos e decisões aplicadas no notebook</div>
+      <div class="card">
+        <h2>Diagnóstico do arquivo</h2>
+        <table>
+          <tr><th>Verificação</th><th>Resultado</th><th>Tratamento</th></tr>
+          <tr><td>Campos ausentes</td><td>1 Score e 1 Competition</td><td>Não afetam a contagem mensal</td></tr>
+          <tr><td>Linhas duplicadas</td><td>0</td><td>Nenhuma remoção necessária</td></tr>
+          <tr><td>Datas repetidas</td><td>3</td><td>Mantidas: podem representar partidas distintas no mesmo dia</td></tr>
+          <tr><td>Datas inválidas</td><td>0</td><td>Datas convertidas e ordenadas cronologicamente</td></tr>
+          <tr><td>Placares fora do padrão N-N</td><td>16</td><td>Placares não entram na variável-alvo</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Contagem média por mês do calendário</h2>
+        <table>
+          <tr><th>Mês</th><th>Média</th><th>Mês</th><th>Média</th><th>Mês</th><th>Média</th></tr>
+          <tr><td>Jan</td><td>0,31</td><td>Mai</td><td>0,81</td><td>Set</td><td>0,68</td></tr>
+          <tr><td>Fev</td><td>0,42</td><td>Jun</td><td>2,39</td><td>Out</td><td>0,65</td></tr>
+          <tr><td>Mar</td><td>0,94</td><td>Jul</td><td>1,25</td><td>Nov</td><td>0,56</td></tr>
+          <tr><td>Abr</td><td>0,69</td><td>Ago</td><td>0,51</td><td>Dez</td><td>0,37</td></tr>
+        </table>
+        <div class="note">Junho tem a maior média mensal da amostra; 66,1% dos meses não têm jogos.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p4">
+      <h1>Decomposição STL</h1>
+      <div class="eyebrow">Decomposição robusta com período sazonal de 12 meses</div>
+      <div class="card">
+        <h2>Força dos componentes e estacionariedade</h2>
+        <table>
+          <tr><th>Medida</th><th>Resultado do notebook</th></tr>
+          <tr><td>Força da sazonalidade</td><td>0,2549</td></tr>
+          <tr><td>Força da tendência</td><td>0,0745</td></tr>
+          <tr><td>ADF p-valor</td><td>0,0043</td></tr>
+          <tr><td>KPSS p-valor</td><td>0,0100</td></tr>
+        </table>
+        <p>ADF e KPSS levam a indicações diferentes sobre a estacionariedade; por isso, não são tratados como evidência conclusiva isoladamente. A ordem SARIMA foi selecionada na validação temporal.</p>
+      </div>
+    </section>
+
+    <section class="page" id="p5">
+      <h1>Feature engineering</h1>
+      <div class="eyebrow">Trinta e dois preditores compartilhados por Random Forest e XGBoost</div>
+      <div class="card">
+        <table>
+          <tr><th>Família</th><th>Quantidade</th><th>Construção</th></tr>
+          <tr><td>Lags da série</td><td>12</td><td>Valores mensais defasados de 1 a 12 meses</td></tr>
+          <tr><td>Médias móveis</td><td>4</td><td>Janelas anteriores de 3, 6, 9 e 12 meses</td></tr>
+          <tr><td>Desvios móveis</td><td>3</td><td>Janelas anteriores de 3, 6 e 12 meses</td></tr>
+          <tr><td>Calendário</td><td>11</td><td>Indicadores dos meses de fevereiro a dezembro; janeiro é referência</td></tr>
+          <tr><td>Ranking FIFA</td><td>2</td><td>Posição e pontos relativos conhecidos na origem; congelados no horizonte futuro</td></tr>
+          <tr><th>Total</th><th>32</th><th>Features conhecidas na origem do mês-alvo</th></tr>
+        </table>
+        <div class="note">O teste anti-vazamento confirmou 32 colunas finitas. Lags e janelas usam apenas meses anteriores; as variáveis FIFA respeitam a data de publicação e permanecem fixas durante cada previsão de múltiplos passos.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p6">
+      <h1>Protocolo walk-forward</h1>
+      <div class="eyebrow">Comparação temporal feita nas mesmas origens e horizontes</div>
+      <div class="card">
+        <table>
+          <tr><th>Etapa</th><th>Configuração</th></tr>
+          <tr><td>Amostra comparável</td><td>Jan/1993–dez/2022; todos os modelos treinados e avaliados nesse mesmo recorte</td></tr>
+          <tr><td>Validação interna</td><td>Origens em jan/2020 e mai/2020; 4 passos por origem; usada para selecionar hiperparâmetros</td></tr>
+          <tr><td>Avaliação final</td><td>15 origens mensais, de jun/2021 a ago/2022</td></tr>
+          <tr><td>Horizonte</td><td>4 meses à frente em cada origem</td></tr>
+          <tr><td>Datas previstas</td><td>jul/2021 a dez/2022</td></tr>
+          <tr><td>Previsões avaliadas</td><td>60 por modelo; previsões sobrepostas contam em horizontes diferentes</td></tr>
+          <tr><td>Atualização</td><td>Modelo reajustado em cada origem; ranking congelado no último valor disponível antes do primeiro mês previsto</td></tr>
+        </table>
+        <div class="note">Os hiperparâmetros foram escolhidos na validação interna antes da avaliação final. O MAE do teste não foi usado para essa escolha.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p7">
+      <h1>Modelos e hiperparâmetros</h1>
+      <div class="eyebrow">Configurações selecionadas na validação interna do notebook</div>
+      <div class="card">
+        <table>
+          <tr><th>Modelo</th><th>Busca e configuração selecionada</th><th>MAE validação</th></tr>
+          <tr><td>SARIMAX</td><td>Grade 3×3×3×3; d=0, D=1, m=12. SARIMAX(0,0,2)×(2,1,2,12), com seno/cosseno mensal e as duas variáveis FIFA</td><td>0,937</td></tr>
+          <tr><td>Holt-Winters</td><td>Tendência aditiva sem amortecimento; sem sazonalidade; inicialização heurística</td><td>1,076</td></tr>
+          <tr><td>Random Forest</td><td>ParameterSampler, 40 combinações; 500 árvores, max_depth=None, min_samples_split=2, min_samples_leaf=3, max_features=0,5</td><td>1,512</td></tr>
+          <tr><td>XGBoost</td><td>Optuna/TPE, 60 trials; 100 árvores, profundidade 5, learning_rate≈0,0123, min_child_weight=20, objective=reg:absoluteerror</td><td>1,106</td></tr>
+        </table>
+        <p>A busca SARIMAX testa 81 configurações e seleciona pelo MAE interno entre as cinco com menor BIC. Random Forest e XGBoost usam as mesmas 32 features, com previsões recursivas; durante cada horizonte, as variáveis FIFA não são atualizadas com publicações futuras.</p>
+        <div class="warning">MAE de validação serve para seleção e não deve ser confundido com o resultado fora da amostra apresentado na etapa 8.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p8">
+      <h1>Resultados comparativos (MAE)</h1>
+      <div class="eyebrow">Erro absoluto médio nas 60 previsões walk-forward por modelo, no período comum desde 1993 — menor é melhor</div>
+      <div class="card">
+        <h2>MAE global fora da amostra</h2>
+        <table>
+          <tr><th>Posição</th><th>Modelo</th><th>MAE</th><th>N previsões</th></tr>
+          <tr><td>1</td><td>SARIMAX</td><td><strong>0,778</strong></td><td>60</td></tr>
+          <tr><td>2</td><td>Random Forest</td><td>0,960</td><td>60</td></tr>
+          <tr><td>3</td><td>XGBoost</td><td>0,961</td><td>60</td></tr>
+          <tr><td>4</td><td>Média histórica</td><td>1,046</td><td>60</td></tr>
+          <tr><td>5</td><td>Holt-Winters</td><td>1,135</td><td>60</td></tr>
+          <tr><td>6</td><td>Sazonal ingênuo (12)</td><td>1,267</td><td>60</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>MAE por passo do horizonte</h2>
+        <table>
+          <tr><th>Modelo</th><th>1 mês</th><th>2 meses</th><th>3 meses</th><th>4 meses</th></tr>
+          <tr><td>SARIMAX</td><td>0,810</td><td>0,753</td><td>0,726</td><td>0,823</td></tr>
+          <tr><td>Random Forest</td><td>0,930</td><td>0,990</td><td>0,963</td><td>0,956</td></tr>
+          <tr><td>XGBoost</td><td>1,000</td><td>0,956</td><td>0,941</td><td>0,945</td></tr>
+          <tr><td>Média histórica</td><td>1,087</td><td>1,057</td><td>1,020</td><td>1,021</td></tr>
+          <tr><td>Holt-Winters</td><td>1,185</td><td>1,111</td><td>1,130</td><td>1,114</td></tr>
+          <tr><td>Sazonal ingênuo (12)</td><td>1,267</td><td>1,267</td><td>1,267</td><td>1,267</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="page" id="p9">
+      <h1>Resíduos e Ljung-Box</h1>
+      <div class="eyebrow">Diagnóstico dos erros de um passo do modelo líder, nas 15 origens</div>
+      <div class="card">
+        <table>
+          <tr><th>Lags</th><th>Estatística Q</th><th>p-valor</th><th>Leitura a 5%</th></tr>
+          <tr><td>1</td><td>0,4576</td><td>0,4987</td><td>Sem evidência de autocorrelação</td></tr>
+          <tr><td>3</td><td>1,2213</td><td>0,7479</td><td>Sem evidência de autocorrelação</td></tr>
+          <tr><td>6</td><td>2,0726</td><td>0,9129</td><td>Sem evidência de autocorrelação</td></tr>
+        </table>
+        <p>Modelo avaliado: SARIMAX. Resíduo médio: 0,179 jogo. Teste t para média dos resíduos igual a zero: p-valor=0,5737; não há evidência de viés médio a 5%.</p>
+        <div class="warning">O diagnóstico usa apenas 15 erros de horizonte 1; a amostra é pequena, então ausência de significância não prova que os resíduos sejam ruído branco.</div>
+      </div>
+    </section>
+
+    <section class="page" id="p10">
+      <h1>Importância das features</h1>
+      <div class="eyebrow">XGBoost: permutação na validação temporal de out/2020 a mai/2021</div>
+      <div class="card">
+        <h2>Top 10 por importância de permutação</h2>
+        <table>
+          <tr><th>Feature</th><th>Importância</th><th>Feature</th><th>Importância</th></tr>
+          <tr><td>jogos_lag_12</td><td>0,1308</td><td>jogos_lag_6</td><td>0,0169</td></tr>
+          <tr><td>jogos_lag_5</td><td>0,0057</td><td>jogos_lag_2</td><td>0,0030</td></tr>
+          <tr><td>media_6</td><td>0,0010</td><td>jogos_lag_11</td><td>0,0004</td></tr>
+          <tr><td>dp_6</td><td>0,0003</td><td>jogos_lag_1</td><td>0,0001</td></tr>
+          <tr><td>jogos_lag_7</td><td>0,0000</td><td>jogos_lag_9</td><td>0,0000</td></tr>
+        </table>
+        <h3>Importância agregada por família</h3>
+        <table>
+          <tr><th>Família</th><th>Importância agregada</th></tr>
+          <tr><td>Lags</td><td>0,1560</td></tr>
+          <tr><td>Janelas móveis</td><td>0,0009</td></tr>
+          <tr><td>Calendário mensal</td><td>0,0000</td></tr>
+          <tr><td>Ranking FIFA</td><td>0,0000</td></tr>
+        </table>
+        <p>Coeficientes SARIMAX: sin_mes=0,0000; cos_mes=0,0000; rank_fifa_brasil=0,0215; pontos_fifa_relativos=−0,2334. A importância por permutação do ranking ficou próxima de zero para o XGBoost nesta janela de validação.</p>
+      </div>
+    </section>
+
+    <section class="page" id="p11">
+      <h1>Conclusão desta base</h1>
+      <div class="card">
+        <h2>Melhor modelo nesta avaliação</h2>
+        <p><strong>SARIMAX obteve o menor MAE (0,778)</strong>, seguido por Random Forest (0,960) e XGBoost (0,961), no conjunto de 60 previsões walk-forward por modelo. O MAE do SARIMAX foi 19,0% menor que o do segundo colocado e 25,6% menor que o da média histórica (1,046).</p>
+      </div>
+      <div class="card">
+        <h2>Limitações e decisão metodológica</h2>
+        <p>A análise exploratória mantém o histórico completo de setembro/1914 a dezembro/2022. Como o ranking FIFA começa em 31/12/1992, o treinamento e a comparação usam apenas 360 meses de janeiro/1993 a dezembro/2022; 144 desses meses não tiveram partidas. As origens são consecutivas e os horizontes se sobrepõem, então as 60 previsões não são observações independentes.</p>
+        <p>O efeito adicional das variáveis FIFA não deve ser inferido apenas pelo ranking comparativo entre famílias de modelos: a importância por permutação no XGBoost foi praticamente nula. O ranking foi usado somente quando já publicado e congelado durante cada horizonte, evitando vazamento temporal.</p>
+      </div>
+      <div class="note">Todos os números desta página e das tabelas anteriores correspondem às saídas executadas de brazil/notebook.ipynb. Se os dados ou a busca de hiperparâmetros forem alterados, reexecute o notebook e atualize este relatório.</div>
+    </section>
+
+    <div class="pager">
+      <button id="prevBtn" type="button">← Anterior</button>
+      <button id="nextBtn" type="button">Próxima →</button>
+    </div>
+  </main>
+</div>
+<script>
+  const pages = [...document.querySelectorAll('section.page')];
+  const buttons = [...document.querySelectorAll('.nav-btn')];
+  let current = 0;
+  function showPage(index) {
+    current = index;
+    pages.forEach((page, i) => page.classList.toggle('active', i === current));
+    buttons.forEach((button, i) => button.classList.toggle('active', i === current));
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === pages.length - 1;
+    window.scrollTo(0, 0);
+  }
+  buttons.forEach((button, index) => button.addEventListener('click', () => showPage(index)));
+  document.getElementById('prevBtn').addEventListener('click', () => showPage(Math.max(0, current - 1)));
+  document.getElementById('nextBtn').addEventListener('click', () => showPage(Math.min(pages.length - 1, current + 1)));
+  showPage(0);
+</script>
+</body>
+</html>
