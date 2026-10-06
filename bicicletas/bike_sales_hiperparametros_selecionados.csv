@@ -1,0 +1,7 @@
+modelo,configuração,MAE validação
+SARIMAX,"{'transf': 'log', 'order': (0, 1, 2), 'seasonal_order': (1, 1, 0, 6), 'exog': 'idade_media_lag1+pct_cat_Accessories_lag1+pct_pais_Germany_lag1'}",175158.9267946261
+Holt-Winters,"{'trend': 'mul', 'damped': False, 'seasonal': 'mul', 'm': 12, 'boxcox': False}",246084.8601063447
+Random Forest,"{'params': {'n_estimators': 300, 'min_samples_split': 4, 'min_samples_leaf': 4, 'max_features': 'sqrt', 'max_depth': None}, 'modo': 'nivel'}",286149.89103985374
+XGBoost,"{'params': {'subsample': 1.0, 'reg_lambda': 1, 'reg_alpha': 0, 'n_estimators': 600, 'min_child_weight': 3, 'max_depth': 6, 'learning_rate': 0.1, 'colsample_bytree': 0.6}, 'modo': 'nivel'}",269004.3905445735
+Ingênuo (referência),y[t-1],375258.8333333334
+Ingênuo sazonal (referência),y[t-12],1635225.2499999998
